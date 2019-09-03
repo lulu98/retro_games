@@ -1,5 +1,5 @@
 # Retro Games
-![Start Menu](assets/images/screenshot_start_menu.png)
+<p align="center"><img alt="ping pong screenshot" src="assets/images/screenshot_start_menu.png"></p>
 
 ## Description
 A few retro games as web application (HTML, CSS, Javascript, PHP).  

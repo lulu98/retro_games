@@ -1,5 +1,5 @@
 # Snake
-<p align="center">![Start Menu](assets/images/screenshot_snake.png)</p>
+<p align="center"><img alt="snake screenshot" src="assets/images/screenshot_snake.png"></p>
 
 ## Description
 You can play the classic game of snake. The game features a pretty basic design with no sound effects what so ever.

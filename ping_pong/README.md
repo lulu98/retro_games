@@ -1,7 +1,5 @@
 # Ping Pong
-<p align="center">
-![Start Menu](assets/images/screenshot_ping_pong.png)
-</p>
+<p align="center"><img alt="ping pong screenshot" src="assets/images/screenshot_ping_pong.png"></p>
 
 ## Description
 You can play the classic game of ping pong. The game provides the option to play against another human being or to play with the computer.
