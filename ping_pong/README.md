@@ -6,7 +6,7 @@ You can play the classic game of ping pong. The game provides the option to play
 
 ## Sources
 ### Audio
-Ping Pong Sound: https://freesound.org/people/pan14/sounds/263133/
+Ping Pong Sound: https://freesound.org/people/pan14/sounds/263133/  
 Wall Collision Sound: https://freesound.org/people/timgormly/sounds/170141/
 
 ## TODO
