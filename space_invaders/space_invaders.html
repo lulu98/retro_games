@@ -1,0 +1,1933 @@
+<!doctype html>
+<html>
+<head>
+  <link href="https://fonts.googleapis.com/css?family=Orbitron&display=swap" rel="stylesheet">
+  <style>
+    body{
+      text-align:center;
+      font-family:sans-serif;
+    }
+
+    #myCanvas{
+      background-color:black;
+      background-image:url(./assets/images/star_background.jpg);
+    }
+
+    #formDiv{
+      display:none;
+    }
+
+    #submitButton{
+      background-color:#4CAF50;
+      border:none;
+      color:white;
+      padding:10px 32px;
+      text-align:center;
+      text-decoration:none;
+      font-size:14px;
+      width: 120px;
+      cursor:pointer;
+    }
+
+    #submitButton:hover{
+      background-color: green;
+    }
+  </style>
+</head>
+<body>
+  <h1>Space Invaders</h1>
+  <div id="gameDiv">
+    <canvas id="myCanvas" width="600" height="400"></canvas>
+    <p><a href="../index.html">Main Page</a></p>
+  </div>
+  <div id="formDiv">
+    <form id="form" action="store_score.php" method="post">
+      Name: <input id="nameField" type="text" name="name" value="Name"><br><br>
+      Score: <input id="scoreField" type="number" name="score" value="0" readonly><br><br>
+      <input id="submitButton" type="submit" value="Submit">
+    </form>
+  </div>
+  <script>
+    /*
+    TODO:
+    - destroyed animation for defense station
+    - asteroids
+    */
+    var audio_spaceship = new Audio('assets/sound/ufo_lowpitch.wav');
+    var canvas = document.getElementById("myCanvas");
+    var context = canvas.getContext("2d");
+    var isGameOver = false;
+    var timeInterval = 50;
+    const rectSize = 2;
+
+    var width = canvas.width / rectSize;
+    var height = (canvas.height / rectSize)-5;
+
+    var dimensions = {
+      "aliens":[
+        {
+          "width":11,
+          "height":8
+        },
+        {
+          "width":9,
+          "height":9
+        },
+        {
+          "width":9,
+          "height":7
+        },
+        {
+          "width":9,
+          "height":8
+        },
+        {
+          "width":10,
+          "height":8
+        },
+        {
+          "width":9,
+          "height":6
+        },
+        {
+          "width":9,
+          "height":7
+        },
+        {
+          "width":11,
+          "height":8
+        },
+        {
+          "width":8,
+          "height":8
+        }
+      ],
+      "spaceship":{
+        "width":14,
+        "height":7
+      }
+    };
+
+    var player ={
+      "dimension":{
+        "width":13,
+        "height":9
+      },
+      "lives":3,
+      "score":0,
+      "color":"green",
+      "pos":{
+        "x":width/2,
+        "y":height-9
+      },
+      "dir":{
+        "x":0,
+        "y":0
+      },
+      "bullet":getBullet(),
+      "alive":true
+    };
+
+    var spaceship = {
+      "speed":10,
+      "color":"red",
+      "pos":{
+        "x":10,
+        "y":16
+      },
+      "dir":{
+        "x":10,
+        "y":0
+      },
+      "bullets":[],
+      "alive":true
+    };
+
+    var aliens = {
+      "dir":{
+        "x":1,
+        "y":0
+      },
+      "aliens":[
+        {
+          "type":0,
+          "color":"green",
+          "audio":new Audio("assets/sound/fastinvader1.wav"),
+          "alienLine":getAlienLine(0,10,15,10,30)
+        },
+        {
+          "type":1,
+          "color":"blue",
+          "audio":new Audio("assets/sound/fastinvader2.wav"),
+          "alienLine":getAlienLine(1,10,15,10,40)
+        },
+        {
+          "type":2,
+          "color":"pink",
+          "audio":new Audio("assets/sound/fastinvader3.wav"),
+          "alienLine":getAlienLine(2,10,15,10,51)
+        },
+        {
+          "type":3,
+          "color":"yellow",
+          "audio":new Audio("assets/sound/fastinvader4.wav"),
+          "alienLine":getAlienLine(3,10,15,10,60)
+        },
+        {
+          "type":4,
+          "color":"violet",
+          "audio":new Audio("assets/sound/fastinvader1.wav"),
+          "alienLine":getAlienLine(4,10,15,10,70)
+        },
+        {
+          "type":5,
+          "color":"lightblue",
+          "audio":new Audio("assets/sound/fastinvader2.wav"),
+          "alienLine":getAlienLine(5,10,15,10,80)
+        },
+        {
+          "type":6,
+          "color":"red",
+          "audio":new Audio("assets/sound/fastinvader3.wav"),
+          "alienLine":getAlienLine(6,10,15,10,90)
+        },
+        {
+          "type":7,
+          "color":"lightgreen",
+          "audio":new Audio("assets/sound/fastinvader4.wav"),
+          "alienLine":getAlienLine(7,10,15,10,100)
+        },
+        {
+          "type":8,
+          "color":"orange",
+          "audio":new Audio("assets/sound/fastinvader1.wav"),
+          "alienLine":getAlienLine(8,10,15,10,110)
+        }
+      ]
+    };
+
+    audio_spaceship.addEventListener('ended',function(){
+      if (isGameOver) {
+        audio_spaceship.pause();
+      }else{
+        this.currentTime = 0;
+        this.play();
+      }
+    },false);
+
+
+    function getRandomInt(min,max){
+      min = Math.ceil(min);
+      max = Math.floor(max);
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function getBullet(){
+      var bullet = {
+        "x":0,
+        "y":0,
+        "exist":false
+      };
+      return bullet;
+    }
+
+    function getAsteroid(){
+      var width = getRandomInt(15,30);
+      var height = getRandomInt(15,30);
+      var asteroid = {
+        "color":"brown"
+      };
+      return asteroid;
+    }
+
+    function getAlienLine(type,numAliens,distance,x,y){
+      var alienLine = [];
+      for (var i = 0; i < numAliens; i++) {
+        alienLine.push(alien(type,x+i*distance,y));
+      }
+      return alienLine;
+    }
+
+    function getPosition(x,y){
+      return {
+        "x":x,
+        "y":y
+      };
+    }
+
+    function alien(num,x,y){
+      var alien = {
+        "type":num,
+        "frame":0,
+        "pos":{
+          "x":x,
+          "y":y
+        },
+        "bullet":getBullet(),
+        "alive":true
+      };
+      return alien;
+    }
+
+    function getSpaceShip(x,y){
+      var spaceship ={
+        "color":"red",
+        "pos":[
+            getPosition(x+5,y),
+            getPosition(x+6,y),
+            getPosition(x+7,y),
+            getPosition(x+8,y),
+            getPosition(x+9,y),
+
+            getPosition(x+3,y+1),
+            getPosition(x+4,y+1),
+            getPosition(x+5,y+1),
+            getPosition(x+6,y+1),
+            getPosition(x+7,y+1),
+            getPosition(x+8,y+1),
+            getPosition(x+9,y+1),
+            getPosition(x+10,y+1),
+            getPosition(x+11,y+1),
+
+            getPosition(x+2,y+2),
+            getPosition(x+3,y+2),
+            getPosition(x+4,y+2),
+            getPosition(x+5,y+2),
+            getPosition(x+6,y+2),
+            getPosition(x+7,y+2),
+            getPosition(x+8,y+2),
+            getPosition(x+9,y+2),
+            getPosition(x+10,y+2),
+            getPosition(x+11,y+2),
+            getPosition(x+12,y+2),
+
+            getPosition(x+1,y+3),
+            getPosition(x+2,y+3),
+            getPosition(x+3,y+3),
+            getPosition(x+5,y+3),
+            getPosition(x+7,y+3),
+            getPosition(x+9,y+3),
+            getPosition(x+11,y+3),
+            getPosition(x+12,y+3),
+            getPosition(x+13,y+3),
+
+            getPosition(x+1,y+4),
+            getPosition(x+2,y+4),
+            getPosition(x+3,y+4),
+            getPosition(x+4,y+4),
+            getPosition(x+5,y+4),
+            getPosition(x+6,y+4),
+            getPosition(x+7,y+4),
+            getPosition(x+8,y+4),
+            getPosition(x+9,y+4),
+            getPosition(x+10,y+4),
+            getPosition(x+11,y+4),
+            getPosition(x+12,y+4),
+            getPosition(x+13,y+4),
+
+            getPosition(x+3,y+5),
+            getPosition(x+4,y+5),
+            getPosition(x+5,y+5),
+            getPosition(x+7,y+5),
+            getPosition(x+9,y+5),
+            getPosition(x+10,y+5),
+            getPosition(x+11,y+5),
+
+            getPosition(x+4,y+6),
+            getPosition(x+10,y+6)
+
+          ]
+      };
+      return spaceship;
+    }
+
+    function getPlayer(x,y){
+      if (isGameOver && !hasWon()) {
+        var player = {
+          "color":"green",
+          "pos":[
+              getPosition(x+4,y+4),
+              getPosition(x+5,y+4),
+              getPosition(x+6,y+4),
+              getPosition(x+9,y+4),
+              getPosition(x+10,y+4),
+              getPosition(x+11,y+4),
+
+              getPosition(x+4,y+5),
+              getPosition(x+5,y+5),
+              getPosition(x+6,y+5),
+              getPosition(x+7,y+5),
+              getPosition(x+8,y+5),
+              getPosition(x+9,y+5),
+              getPosition(x+12,y+5),
+
+              getPosition(x+5,y+6),
+              getPosition(x+6,y+6),
+              getPosition(x+7,y+6),
+              getPosition(x+8,y+6),
+              getPosition(x+9,y+6),
+              getPosition(x+10,y+6),
+
+              getPosition(x+2,y+7),
+              getPosition(x+3,y+7),
+              getPosition(x+4,y+7),
+              getPosition(x+5,y+7),
+              getPosition(x+6,y+7),
+              getPosition(x+7,y+7),
+              getPosition(x+8,y+7),
+              getPosition(x+9,y+7),
+              getPosition(x+10,y+7),
+              getPosition(x+11,y+7),
+
+              getPosition(x,y+8),
+              getPosition(x+1,y+8),
+              getPosition(x+2,y+8),
+              getPosition(x+3,y+8),
+              getPosition(x+4,y+8),
+              getPosition(x+5,y+8),
+              getPosition(x+6,y+8),
+              getPosition(x+7,y+8),
+              getPosition(x+8,y+8),
+              getPosition(x+9,y+8),
+              getPosition(x+10,y+8),
+              getPosition(x+11,y+8),
+              getPosition(x+12,y+8)
+
+            ]
+        };
+        return player;
+      }else{
+        var player = {
+          "color":"green",
+          "pos":[
+              getPosition(x+6,y),
+
+              getPosition(x+5,y+1),
+              getPosition(x+6,y+1),
+              getPosition(x+7,y+1),
+
+              getPosition(x+5,y+2),
+              getPosition(x+6,y+2),
+              getPosition(x+7,y+2),
+
+              getPosition(x+5,y+3),
+              getPosition(x+6,y+3),
+              getPosition(x+7,y+3),
+
+              getPosition(x+1,y+4),
+              getPosition(x+2,y+4),
+              getPosition(x+3,y+4),
+              getPosition(x+4,y+4),
+              getPosition(x+5,y+4),
+              getPosition(x+6,y+4),
+              getPosition(x+7,y+4),
+              getPosition(x+8,y+4),
+              getPosition(x+9,y+4),
+              getPosition(x+10,y+4),
+              getPosition(x+11,y+4),
+
+              getPosition(x,y+5),
+              getPosition(x+1,y+5),
+              getPosition(x+2,y+5),
+              getPosition(x+3,y+5),
+              getPosition(x+4,y+5),
+              getPosition(x+5,y+5),
+              getPosition(x+6,y+5),
+              getPosition(x+7,y+5),
+              getPosition(x+8,y+5),
+              getPosition(x+9,y+5),
+              getPosition(x+10,y+5),
+              getPosition(x+11,y+5),
+              getPosition(x+12,y+5),
+
+              getPosition(x,y+6),
+              getPosition(x+1,y+6),
+              getPosition(x+2,y+6),
+              getPosition(x+3,y+6),
+              getPosition(x+4,y+6),
+              getPosition(x+5,y+6),
+              getPosition(x+6,y+6),
+              getPosition(x+7,y+6),
+              getPosition(x+8,y+6),
+              getPosition(x+9,y+6),
+              getPosition(x+10,y+6),
+              getPosition(x+11,y+6),
+              getPosition(x+12,y+6),
+
+              getPosition(x,y+7),
+              getPosition(x+1,y+7),
+              getPosition(x+2,y+7),
+              getPosition(x+3,y+7),
+              getPosition(x+4,y+7),
+              getPosition(x+5,y+7),
+              getPosition(x+6,y+7),
+              getPosition(x+7,y+7),
+              getPosition(x+8,y+7),
+              getPosition(x+9,y+7),
+              getPosition(x+10,y+7),
+              getPosition(x+11,y+7),
+              getPosition(x+12,y+7),
+
+              getPosition(x,y+8),
+              getPosition(x+1,y+8),
+              getPosition(x+2,y+8),
+              getPosition(x+3,y+8),
+              getPosition(x+4,y+8),
+              getPosition(x+5,y+8),
+              getPosition(x+6,y+8),
+              getPosition(x+7,y+8),
+              getPosition(x+8,y+8),
+              getPosition(x+9,y+8),
+              getPosition(x+10,y+8),
+              getPosition(x+11,y+8),
+              getPosition(x+12,y+8)
+
+            ]
+        };
+        return player;
+      }
+
+    }
+
+    function getAlien(num,frame,x,y){
+      switch (num) {
+        case 0:
+          switch (frame) {
+            case 0:
+              var alien = {
+                "color":"green",
+                "pos":[
+                  getPosition(x+2,y),
+                  getPosition(x+8,y),
+
+                  getPosition(x,y+1),
+                  getPosition(x+3,y+1),
+                  getPosition(x+7,y+1),
+                  getPosition(x+10,y+1),
+
+                  getPosition(x,y+2),
+                  getPosition(x+2,y+2),
+                  getPosition(x+3,y+2),
+                  getPosition(x+4,y+2),
+                  getPosition(x+5,y+2),
+                  getPosition(x+6,y+2),
+                  getPosition(x+7,y+2),
+                  getPosition(x+8,y+2),
+                  getPosition(x+10,y+2),
+
+                  getPosition(x,y+3),
+                  getPosition(x+1,y+3),
+                  getPosition(x+2,y+3),
+                  getPosition(x+4,y+3),
+                  getPosition(x+5,y+3),
+                  getPosition(x+6,y+3),
+                  getPosition(x+8,y+3),
+                  getPosition(x+9,y+3),
+                  getPosition(x+10,y+3),
+
+                  getPosition(x+1,y+4),
+                  getPosition(x+2,y+4),
+                  getPosition(x+3,y+4),
+                  getPosition(x+4,y+4),
+                  getPosition(x+5,y+4),
+                  getPosition(x+6,y+4),
+                  getPosition(x+7,y+4),
+                  getPosition(x+8,y+4),
+                  getPosition(x+9,y+4),
+
+                  getPosition(x+2,y+5),
+                  getPosition(x+3,y+5),
+                  getPosition(x+4,y+5),
+                  getPosition(x+5,y+5),
+                  getPosition(x+6,y+5),
+                  getPosition(x+7,y+5),
+                  getPosition(x+8,y+5),
+
+                  getPosition(x+2,y+6),
+                  getPosition(x+8,y+6),
+
+                  getPosition(x+1,y+7),
+                  getPosition(x+2,y+7),
+                  getPosition(x+8,y+7),
+                  getPosition(x+9,y+7)
+
+                ]
+              };
+              return alien;
+              break;
+            case 1:
+              var alien = {
+                "color":"green",
+                "pos":[
+                  getPosition(x+3,y),
+                  getPosition(x+7,y),
+
+                  getPosition(x+3,y+1),
+                  getPosition(x+7,y+1),
+
+                  getPosition(x+2,y+2),
+                  getPosition(x+3,y+2),
+                  getPosition(x+4,y+2),
+                  getPosition(x+5,y+2),
+                  getPosition(x+6,y+2),
+                  getPosition(x+7,y+2),
+                  getPosition(x+8,y+2),
+
+                  getPosition(x,y+3),
+                  getPosition(x+1,y+3),
+                  getPosition(x+2,y+3),
+                  getPosition(x+4,y+3),
+                  getPosition(x+5,y+3),
+                  getPosition(x+6,y+3),
+                  getPosition(x+8,y+3),
+                  getPosition(x+9,y+3),
+                  getPosition(x+10,y+3),
+
+                  getPosition(x,y+4),
+                  getPosition(x+2,y+4),
+                  getPosition(x+3,y+4),
+                  getPosition(x+4,y+4),
+                  getPosition(x+5,y+4),
+                  getPosition(x+6,y+4),
+                  getPosition(x+7,y+4),
+                  getPosition(x+8,y+4),
+                  getPosition(x+10,y+4),
+
+                  getPosition(x,y+5),
+                  getPosition(x+2,y+5),
+                  getPosition(x+3,y+5),
+                  getPosition(x+4,y+5),
+                  getPosition(x+5,y+5),
+                  getPosition(x+6,y+5),
+                  getPosition(x+7,y+5),
+                  getPosition(x+8,y+5),
+                  getPosition(x+10,y+5),
+
+                  getPosition(x+3,y+6),
+                  getPosition(x+7,y+6),
+
+                  getPosition(x+2,y+7),
+                  getPosition(x+3,y+7),
+                  getPosition(x+7,y+7),
+                  getPosition(x+8,y+7)
+
+                ]
+              };
+              return alien;
+              break;
+            default:
+          }
+          break;
+        case 1:
+          switch (frame) {
+            case 0:
+              var alien = {
+                "color":"blue",
+                "pos":[
+                  getPosition(x+2,y),
+                  getPosition(x+6,y),
+
+                  getPosition(x+3,y+1),
+                  getPosition(x+5,y+1),
+
+                  getPosition(x+2,y+2),
+                  getPosition(x+3,y+2),
+                  getPosition(x+4,y+2),
+                  getPosition(x+5,y+2),
+                  getPosition(x+6,y+2),
+
+                  getPosition(x+1,y+3),
+                  getPosition(x+2,y+3),
+                  getPosition(x+4,y+3),
+                  getPosition(x+6,y+3),
+                  getPosition(x+7,y+3),
+
+                  getPosition(x,y+4),
+                  getPosition(x+1,y+4),
+                  getPosition(x+2,y+4),
+                  getPosition(x+3,y+4),
+                  getPosition(x+4,y+4),
+                  getPosition(x+5,y+4),
+                  getPosition(x+6,y+4),
+                  getPosition(x+7,y+4),
+                  getPosition(x+8,y+4),
+
+                  getPosition(x,y+5),
+                  getPosition(x+2,y+5),
+                  getPosition(x+3,y+5),
+                  getPosition(x+4,y+5),
+                  getPosition(x+5,y+5),
+                  getPosition(x+6,y+5),
+                  getPosition(x+8,y+5),
+
+                  getPosition(x,y+6),
+                  getPosition(x+2,y+6),
+                  getPosition(x+3,y+6),
+                  getPosition(x+4,y+6),
+                  getPosition(x+5,y+6),
+                  getPosition(x+6,y+6),
+                  getPosition(x+8,y+6),
+
+                  getPosition(x+3,y+7),
+                  getPosition(x+5,y+7),
+
+                  getPosition(x+2,y+8),
+                  getPosition(x+3,y+8),
+                  getPosition(x+5,y+8),
+                  getPosition(x+6,y+8)
+
+                ]
+              };
+              return alien;
+              break;
+            case 1:
+              var alien = {
+                "color":"blue",
+                "pos":[
+                  getPosition(x+3,y+1),
+                  getPosition(x+5,y+1),
+
+                  getPosition(x+3,y+2),
+                  getPosition(x+5,y+2),
+
+                  getPosition(x,y+3),
+                  getPosition(x+2,y+3),
+                  getPosition(x+3,y+3),
+                  getPosition(x+4,y+3),
+                  getPosition(x+5,y+3),
+                  getPosition(x+6,y+3),
+                  getPosition(x+8,y+3),
+
+                  getPosition(x,y+4),
+                  getPosition(x+1,y+4),
+                  getPosition(x+2,y+4),
+                  getPosition(x+4,y+4),
+                  getPosition(x+6,y+4),
+                  getPosition(x+7,y+4),
+                  getPosition(x+8,y+4),
+
+                  getPosition(x,y+5),
+                  getPosition(x+1,y+5),
+                  getPosition(x+2,y+5),
+                  getPosition(x+3,y+5),
+                  getPosition(x+4,y+5),
+                  getPosition(x+5,y+5),
+                  getPosition(x+6,y+5),
+                  getPosition(x+7,y+5),
+                  getPosition(x+8,y+5),
+
+                  getPosition(x+2,y+6),
+                  getPosition(x+3,y+6),
+                  getPosition(x+4,y+6),
+                  getPosition(x+5,y+6),
+                  getPosition(x+6,y+6),
+
+                  getPosition(x+3,y+7),
+                  getPosition(x+5,y+7),
+
+                  getPosition(x+2,y+8),
+                  getPosition(x+3,y+8),
+                  getPosition(x+5,y+8),
+                  getPosition(x+6,y+8)
+
+                ]
+              };
+              return alien;
+              break;
+            default:
+          }
+          break;
+        case 2:
+          switch (frame) {
+            case 0:
+              var alien = {
+                "color":"pink",
+                "pos":[
+                  getPosition(x+3,y),
+                  getPosition(x+4,y),
+                  getPosition(x+5,y),
+
+                  getPosition(x+2,y+1),
+                  getPosition(x+3,y+1),
+                  getPosition(x+4,y+1),
+                  getPosition(x+5,y+1),
+                  getPosition(x+6,y+1),
+
+                  getPosition(x+1,y+2),
+                  getPosition(x+4,y+2),
+                  getPosition(x+7,y+2),
+
+                  getPosition(x+1,y+3),
+                  getPosition(x+2,y+3),
+                  getPosition(x+3,y+3),
+                  getPosition(x+4,y+3),
+                  getPosition(x+5,y+3),
+                  getPosition(x+6,y+3),
+                  getPosition(x+7,y+3),
+
+                  getPosition(x+2,y+4),
+                  getPosition(x+3,y+4),
+                  getPosition(x+4,y+4),
+                  getPosition(x+5,y+4),
+                  getPosition(x+6,y+4),
+
+                  getPosition(x+1,y+5),
+                  getPosition(x+3,y+5),
+                  getPosition(x+5,y+5),
+                  getPosition(x+7,y+5),
+
+                  getPosition(x,y+6),
+                  getPosition(x+8,y+6)
+
+                ]
+              };
+              return alien;
+              break;
+            case 1:
+              var alien = {
+                "color":"pink",
+                "pos":[
+                  getPosition(x+3,y),
+                  getPosition(x+4,y),
+                  getPosition(x+5,y),
+
+                  getPosition(x+2,y+1),
+                  getPosition(x+3,y+1),
+                  getPosition(x+4,y+1),
+                  getPosition(x+5,y+1),
+                  getPosition(x+6,y+1),
+
+                  getPosition(x+1,y+2),
+                  getPosition(x+4,y+2),
+                  getPosition(x+7,y+2),
+
+                  getPosition(x+1,y+3),
+                  getPosition(x+2,y+3),
+                  getPosition(x+3,y+3),
+                  getPosition(x+4,y+3),
+                  getPosition(x+5,y+3),
+                  getPosition(x+6,y+3),
+                  getPosition(x+7,y+3),
+
+                  getPosition(x+2,y+4),
+                  getPosition(x+3,y+4),
+                  getPosition(x+4,y+4),
+                  getPosition(x+5,y+4),
+                  getPosition(x+6,y+4),
+
+                  getPosition(x+1,y+5),
+                  getPosition(x+3,y+5),
+                  getPosition(x+5,y+5),
+                  getPosition(x+7,y+5),
+
+                  getPosition(x+1,y+6),
+                  getPosition(x+3,y+6),
+                  getPosition(x+5,y+6),
+                  getPosition(x+7,y+6)
+
+                ]
+              };
+              return alien;
+              break;
+            default:
+          }
+          break;
+        case 3:
+          switch (frame) {
+            case 0:
+              var alien = {
+                "color":"yellow",
+                "pos":[
+                  getPosition(x+2,y),
+                  getPosition(x+3,y),
+                  getPosition(x+4,y),
+                  getPosition(x+5,y),
+                  getPosition(x+6,y),
+
+                  getPosition(x+1,y+1),
+                  getPosition(x+2,y+1),
+                  getPosition(x+3,y+1),
+                  getPosition(x+4,y+1),
+                  getPosition(x+5,y+1),
+                  getPosition(x+6,y+1),
+                  getPosition(x+7,y+1),
+
+                  getPosition(x,y+2),
+                  getPosition(x+1,y+2),
+                  getPosition(x+4,y+2),
+                  getPosition(x+7,y+2),
+                  getPosition(x+8,y+2),
+
+                  getPosition(x,y+3),
+                  getPosition(x+1,y+3),
+                  getPosition(x+3,y+3),
+                  getPosition(x+4,y+3),
+                  getPosition(x+6,y+3),
+                  getPosition(x+7,y+3),
+                  getPosition(x+8,y+3),
+
+                  getPosition(x,y+4),
+                  getPosition(x+1,y+4),
+                  getPosition(x+2,y+4),
+                  getPosition(x+3,y+4),
+                  getPosition(x+5,y+4),
+                  getPosition(x+4,y+4),
+                  getPosition(x+6,y+4),
+                  getPosition(x+7,y+4),
+                  getPosition(x+8,y+4),
+
+                  getPosition(x,y+5),
+                  getPosition(x+1,y+5),
+                  getPosition(x+2,y+5),
+                  getPosition(x+3,y+5),
+                  getPosition(x+5,y+5),
+                  getPosition(x+4,y+5),
+                  getPosition(x+6,y+5),
+                  getPosition(x+7,y+5),
+                  getPosition(x+8,y+5),
+
+                  getPosition(x,y+6),
+                  getPosition(x+1,y+6),
+                  getPosition(x+2,y+6),
+                  getPosition(x+3,y+6),
+                  getPosition(x+5,y+6),
+                  getPosition(x+4,y+6),
+                  getPosition(x+6,y+6),
+                  getPosition(x+7,y+6),
+                  getPosition(x+8,y+6),
+
+                  getPosition(x,y+7),
+                  getPosition(x+2,y+7),
+                  getPosition(x+4,y+7),
+                  getPosition(x+6,y+7),
+                  getPosition(x+8,y+7)
+
+                ]
+              };
+              return alien;
+              break;
+            case 1:
+              var alien = {
+                "color":"yellow",
+                "pos":[
+                  getPosition(x+2,y+1),
+                  getPosition(x+3,y+1),
+                  getPosition(x+4,y+1),
+                  getPosition(x+5,y+1),
+                  getPosition(x+6,y+1),
+
+                  getPosition(x+1,y+2),
+                  getPosition(x+2,y+2),
+                  getPosition(x+3,y+2),
+                  getPosition(x+4,y+2),
+                  getPosition(x+5,y+2),
+                  getPosition(x+6,y+2),
+                  getPosition(x+7,y+2),
+
+                  getPosition(x,y+3),
+                  getPosition(x+1,y+3),
+                  getPosition(x+4,y+3),
+                  getPosition(x+7,y+3),
+                  getPosition(x+8,y+3),
+
+                  getPosition(x,y+4),
+                  getPosition(x+1,y+4),
+                  getPosition(x+3,y+4),
+                  getPosition(x+4,y+4),
+                  getPosition(x+6,y+4),
+                  getPosition(x+7,y+4),
+                  getPosition(x+8,y+4),
+
+                  getPosition(x,y+5),
+                  getPosition(x+1,y+5),
+                  getPosition(x+2,y+5),
+                  getPosition(x+3,y+5),
+                  getPosition(x+5,y+5),
+                  getPosition(x+4,y+5),
+                  getPosition(x+6,y+5),
+                  getPosition(x+7,y+5),
+                  getPosition(x+8,y+5),
+
+                  getPosition(x,y+6),
+                  getPosition(x+1,y+6),
+                  getPosition(x+2,y+6),
+                  getPosition(x+3,y+6),
+                  getPosition(x+5,y+6),
+                  getPosition(x+4,y+6),
+                  getPosition(x+6,y+6),
+                  getPosition(x+7,y+6),
+                  getPosition(x+8,y+6),
+
+                  getPosition(x,y+7),
+                  getPosition(x+2,y+7),
+                  getPosition(x+4,y+7),
+                  getPosition(x+6,y+7),
+                  getPosition(x+8,y+7),
+                ]
+              };
+              return alien;
+              break;
+            default:
+          }
+          break;
+        case 4:
+          switch (frame) {
+            case 0:
+              var alien = {
+                "color":"violet",
+                "pos":[
+                  getPosition(x+3,y),
+                  getPosition(x+4,y),
+                  getPosition(x+5,y),
+                  getPosition(x+6,y),
+
+                  getPosition(x+1,y+1),
+                  getPosition(x+2,y+1),
+                  getPosition(x+3,y+1),
+                  getPosition(x+4,y+1),
+                  getPosition(x+5,y+1),
+                  getPosition(x+6,y+1),
+                  getPosition(x+7,y+1),
+                  getPosition(x+8,y+1),
+
+                  getPosition(x,y+2),
+                  getPosition(x+1,y+2),
+                  getPosition(x+2,y+2),
+                  getPosition(x+4,y+2),
+                  getPosition(x+5,y+2),
+                  getPosition(x+7,y+2),
+                  getPosition(x+8,y+2),
+                  getPosition(x+9,y+2),
+
+                  getPosition(x,y+3),
+                  getPosition(x+1,y+3),
+                  getPosition(x+2,y+3),
+                  getPosition(x+3,y+3),
+                  getPosition(x+4,y+3),
+                  getPosition(x+5,y+3),
+                  getPosition(x+6,y+3),
+                  getPosition(x+7,y+3),
+                  getPosition(x+8,y+3),
+                  getPosition(x+9,y+3),
+
+                  getPosition(x,y+4),
+                  getPosition(x+1,y+4),
+                  getPosition(x+2,y+4),
+                  getPosition(x+3,y+4),
+                  getPosition(x+4,y+4),
+                  getPosition(x+5,y+4),
+                  getPosition(x+6,y+4),
+                  getPosition(x+7,y+4),
+                  getPosition(x+8,y+4),
+                  getPosition(x+9,y+4),
+
+                  getPosition(x+2,y+5),
+                  getPosition(x+3,y+5),
+                  getPosition(x+6,y+5),
+                  getPosition(x+7,y+5),
+
+                  getPosition(x+1,y+6),
+                  getPosition(x+2,y+6),
+                  getPosition(x+4,y+6),
+                  getPosition(x+5,y+6),
+                  getPosition(x+7,y+6),
+                  getPosition(x+8,y+6),
+
+                  getPosition(x,y+7),
+                  getPosition(x+1,y+7),
+                  getPosition(x+8,y+7),
+                  getPosition(x+9,y+7)
+
+                ]
+              };
+              return alien;
+              break;
+            case 1:
+              var alien = {
+                "color":"violet",
+                "pos":[
+                  getPosition(x+3,y),
+                  getPosition(x+4,y),
+                  getPosition(x+5,y),
+                  getPosition(x+6,y),
+
+                  getPosition(x+1,y+1),
+                  getPosition(x+2,y+1),
+                  getPosition(x+3,y+1),
+                  getPosition(x+4,y+1),
+                  getPosition(x+5,y+1),
+                  getPosition(x+6,y+1),
+                  getPosition(x+7,y+1),
+                  getPosition(x+8,y+1),
+
+                  getPosition(x,y+2),
+                  getPosition(x+1,y+2),
+                  getPosition(x+2,y+2),
+                  getPosition(x+4,y+2),
+                  getPosition(x+5,y+2),
+                  getPosition(x+7,y+2),
+                  getPosition(x+8,y+2),
+                  getPosition(x+9,y+2),
+
+                  getPosition(x,y+3),
+                  getPosition(x+1,y+3),
+                  getPosition(x+2,y+3),
+                  getPosition(x+3,y+3),
+                  getPosition(x+4,y+3),
+                  getPosition(x+5,y+3),
+                  getPosition(x+6,y+3),
+                  getPosition(x+7,y+3),
+                  getPosition(x+8,y+3),
+                  getPosition(x+9,y+3),
+
+                  getPosition(x,y+4),
+                  getPosition(x+1,y+4),
+                  getPosition(x+2,y+4),
+                  getPosition(x+3,y+4),
+                  getPosition(x+4,y+4),
+                  getPosition(x+5,y+4),
+                  getPosition(x+6,y+4),
+                  getPosition(x+7,y+4),
+                  getPosition(x+8,y+4),
+                  getPosition(x+9,y+4),
+
+                  getPosition(x+2,y+5),
+                  getPosition(x+3,y+5),
+                  getPosition(x+6,y+5),
+                  getPosition(x+7,y+5),
+
+                  getPosition(x+1,y+6),
+                  getPosition(x+2,y+6),
+                  getPosition(x+7,y+6),
+                  getPosition(x+8,y+6),
+
+                  getPosition(x+2,y+7),
+                  getPosition(x+3,y+7),
+                  getPosition(x+6,y+7),
+                  getPosition(x+7,y+7)
+
+                ]
+              };
+              return alien;
+              break;
+            default:
+
+          }
+          break;
+        case 5:
+          switch (frame) {
+            case 0:
+              var alien = {
+                "color":"lightblue",
+                "pos":[
+                  getPosition(x+3,y),
+                  getPosition(x+5,y),
+
+                  getPosition(x,y+1),
+                  getPosition(x+2,y+1),
+                  getPosition(x+3,y+1),
+                  getPosition(x+4,y+1),
+                  getPosition(x+5,y+1),
+                  getPosition(x+6,y+1),
+                  getPosition(x+8,y+1),
+
+                  getPosition(x,y+2),
+                  getPosition(x+1,y+2),
+                  getPosition(x+2,y+2),
+                  getPosition(x+4,y+2),
+                  getPosition(x+6,y+2),
+                  getPosition(x+7,y+2),
+                  getPosition(x+8,y+2),
+
+                  getPosition(x+1,y+3),
+                  getPosition(x+2,y+3),
+                  getPosition(x+3,y+3),
+                  getPosition(x+4,y+3),
+                  getPosition(x+5,y+3),
+                  getPosition(x+6,y+3),
+                  getPosition(x+7,y+3),
+
+                  getPosition(x+1,y+4),
+                  getPosition(x+3,y+4),
+                  getPosition(x+5,y+4),
+                  getPosition(x+7,y+4),
+
+                  getPosition(x,y+5),
+                  getPosition(x+1,y+5),
+                  getPosition(x+7,y+5),
+                  getPosition(x+8,y+5)
+
+                ]
+              };
+              return alien;
+              break;
+            case 1:
+              var alien = {
+                "color":"lightblue",
+                "pos":[
+                  getPosition(x,y),
+                  getPosition(x+1,y),
+                  getPosition(x+3,y),
+                  getPosition(x+5,y),
+                  getPosition(x+7,y),
+                  getPosition(x+8,y),
+
+                  getPosition(x+1,y+1),
+                  getPosition(x+3,y+1),
+                  getPosition(x+5,y+1),
+                  getPosition(x+7,y+1),
+
+                  getPosition(x+1,y+2),
+                  getPosition(x+2,y+2),
+                  getPosition(x+3,y+2),
+                  getPosition(x+4,y+2),
+                  getPosition(x+5,y+2),
+                  getPosition(x+6,y+2),
+                  getPosition(x+7,y+2),
+
+                  getPosition(x+1,y+3),
+                  getPosition(x+2,y+3),
+                  getPosition(x+4,y+3),
+                  getPosition(x+6,y+3),
+                  getPosition(x+7,y+3),
+
+                  getPosition(x+1,y+4),
+                  getPosition(x+2,y+4),
+                  getPosition(x+3,y+4),
+                  getPosition(x+4,y+4),
+                  getPosition(x+5,y+4),
+                  getPosition(x+6,y+4),
+                  getPosition(x+7,y+4),
+
+                  getPosition(x,y+5),
+                  getPosition(x+1,y+5),
+                  getPosition(x+3,y+5),
+                  getPosition(x+5,y+5),
+                  getPosition(x+7,y+5),
+                  getPosition(x+8,y+5)
+
+                ]
+              };
+              return alien;
+              break;
+            default:
+
+          }
+          break;
+        case 6:
+          switch (frame) {
+            case 0:
+              var alien = {
+                "color":"red",
+                "pos":[
+                  getPosition(x+3,y),
+                  getPosition(x+5,y),
+
+                  getPosition(x+2,y+1),
+                  getPosition(x+3,y+1),
+                  getPosition(x+4,y+1),
+                  getPosition(x+5,y+1),
+                  getPosition(x+6,y+1),
+
+                  getPosition(x+1,y+2),
+                  getPosition(x+2,y+2),
+                  getPosition(x+3,y+2),
+                  getPosition(x+4,y+2),
+                  getPosition(x+5,y+2),
+                  getPosition(x+6,y+2),
+                  getPosition(x+7,y+2),
+
+                  getPosition(x,y+3),
+                  getPosition(x+1,y+3),
+                  getPosition(x+4,y+3),
+                  getPosition(x+7,y+3),
+                  getPosition(x+8,y+3),
+                  getPosition(x+7,y+3),
+
+                  getPosition(x,y+4),
+                  getPosition(x+1,y+4),
+                  getPosition(x+2,y+4),
+                  getPosition(x+3,y+4),
+                  getPosition(x+4,y+4),
+                  getPosition(x+5,y+4),
+                  getPosition(x+6,y+4),
+                  getPosition(x+7,y+4),
+                  getPosition(x+8,y+4),
+
+                  getPosition(x,y+5),
+                  getPosition(x+1,y+5),
+                  getPosition(x+2,y+5),
+                  getPosition(x+3,y+5),
+                  getPosition(x+4,y+5),
+                  getPosition(x+5,y+5),
+                  getPosition(x+6,y+5),
+                  getPosition(x+7,y+5),
+                  getPosition(x+8,y+5),
+
+                  getPosition(x,y+6),
+                  getPosition(x+2,y+6),
+                  getPosition(x+4,y+6),
+                  getPosition(x+6,y+6),
+                  getPosition(x+8,y+6)
+
+                ]
+              };
+              return alien;
+              break;
+            case 1:
+              var alien = {
+                "color":"red",
+                "pos":[
+                  getPosition(x+3,y),
+                  getPosition(x+5,y),
+
+                  getPosition(x+2,y+1),
+                  getPosition(x+3,y+1),
+                  getPosition(x+4,y+1),
+                  getPosition(x+5,y+1),
+                  getPosition(x+6,y+1),
+
+                  getPosition(x+1,y+2),
+                  getPosition(x+2,y+2),
+                  getPosition(x+3,y+2),
+                  getPosition(x+4,y+2),
+                  getPosition(x+5,y+2),
+                  getPosition(x+6,y+2),
+                  getPosition(x+7,y+2),
+
+                  getPosition(x,y+3),
+                  getPosition(x+1,y+3),
+                  getPosition(x+4,y+3),
+                  getPosition(x+7,y+3),
+                  getPosition(x+8,y+3),
+                  getPosition(x+7,y+3),
+
+                  getPosition(x,y+4),
+                  getPosition(x+1,y+4),
+                  getPosition(x+2,y+4),
+                  getPosition(x+3,y+4),
+                  getPosition(x+4,y+4),
+                  getPosition(x+5,y+4),
+                  getPosition(x+6,y+4),
+                  getPosition(x+7,y+4),
+                  getPosition(x+8,y+4),
+
+                  getPosition(x,y+5),
+                  getPosition(x+2,y+5),
+                  getPosition(x+4,y+5),
+                  getPosition(x+6,y+5),
+                  getPosition(x+8,y+5),
+
+                  getPosition(x,y+6),
+                  getPosition(x+2,y+6),
+                  getPosition(x+4,y+6),
+                  getPosition(x+6,y+6),
+                  getPosition(x+8,y+6)
+
+                ]
+              };
+              return alien;
+              break;
+            default:
+
+          }
+          break;
+        case 7:
+          switch (frame) {
+            case 0:
+              var alien = {
+                "color":"lightgreen",
+                "pos":[
+                  getPosition(x+2,y),
+                  getPosition(x+8,y),
+
+                  getPosition(x+3,y+1),
+                  getPosition(x+7,y+1),
+
+                  getPosition(x+2,y+2),
+                  getPosition(x+3,y+2),
+                  getPosition(x+4,y+2),
+                  getPosition(x+5,y+2),
+                  getPosition(x+6,y+2),
+                  getPosition(x+7,y+2),
+                  getPosition(x+8,y+2),
+
+                  getPosition(x+1,y+3),
+                  getPosition(x+2,y+3),
+                  getPosition(x+4,y+3),
+                  getPosition(x+5,y+3),
+                  getPosition(x+6,y+3),
+                  getPosition(x+8,y+3),
+                  getPosition(x+9,y+3),
+
+                  getPosition(x,y+4),
+                  getPosition(x+1,y+4),
+                  getPosition(x+2,y+4),
+                  getPosition(x+3,y+4),
+                  getPosition(x+4,y+4),
+                  getPosition(x+5,y+4),
+                  getPosition(x+6,y+4),
+                  getPosition(x+7,y+4),
+                  getPosition(x+8,y+4),
+                  getPosition(x+9,y+4),
+                  getPosition(x+10,y+4),
+
+                  getPosition(x,y+5),
+                  getPosition(x+2,y+5),
+                  getPosition(x+3,y+5),
+                  getPosition(x+4,y+5),
+                  getPosition(x+5,y+5),
+                  getPosition(x+6,y+5),
+                  getPosition(x+7,y+5),
+                  getPosition(x+8,y+5),
+                  getPosition(x+10,y+5),
+
+                  getPosition(x,y+6),
+                  getPosition(x+2,y+6),
+                  getPosition(x+8,y+6),
+                  getPosition(x+10,y+6),
+
+                  getPosition(x+3,y+7),
+                  getPosition(x+4,y+7),
+                  getPosition(x+6,y+7),
+                  getPosition(x+7,y+7)
+
+                ]
+              };
+              return alien;
+              break;
+            case 1:
+              var alien = {
+                "color":"lightgreen",
+                "pos":[
+                  getPosition(x+3,y),
+                  getPosition(x+7,y),
+
+                  getPosition(x+3,y+1),
+                  getPosition(x+7,y+1),
+
+                  getPosition(x+2,y+2),
+                  getPosition(x+3,y+2),
+                  getPosition(x+4,y+2),
+                  getPosition(x+5,y+2),
+                  getPosition(x+6,y+2),
+                  getPosition(x+7,y+2),
+                  getPosition(x+8,y+2),
+
+                  getPosition(x+1,y+3),
+                  getPosition(x+2,y+3),
+                  getPosition(x+4,y+3),
+                  getPosition(x+5,y+3),
+                  getPosition(x+6,y+3),
+                  getPosition(x+8,y+3),
+                  getPosition(x+9,y+3),
+
+                  getPosition(x,y+4),
+                  getPosition(x+1,y+4),
+                  getPosition(x+2,y+4),
+                  getPosition(x+3,y+4),
+                  getPosition(x+4,y+4),
+                  getPosition(x+5,y+4),
+                  getPosition(x+6,y+4),
+                  getPosition(x+7,y+4),
+                  getPosition(x+8,y+4),
+                  getPosition(x+9,y+4),
+                  getPosition(x+10,y+4),
+
+                  getPosition(x,y+5),
+                  getPosition(x+2,y+5),
+                  getPosition(x+3,y+5),
+                  getPosition(x+4,y+5),
+                  getPosition(x+5,y+5),
+                  getPosition(x+6,y+5),
+                  getPosition(x+7,y+5),
+                  getPosition(x+8,y+5),
+                  getPosition(x+10,y+5),
+
+                  getPosition(x+2,y+6),
+                  getPosition(x+4,y+6),
+                  getPosition(x+6,y+6),
+                  getPosition(x+8,y+6),
+
+                  getPosition(x+3,y+7),
+                  getPosition(x+7,y+7)
+
+                ]
+              };
+              return alien;
+              break;
+            default:
+
+          }
+          break;
+        case 8:
+          switch (frame) {
+            case 0:
+              var alien = {
+                "color":"orange",
+                "pos":[
+                  getPosition(x+3,y),
+                  getPosition(x+4,y),
+
+                  getPosition(x+2,y+1),
+                  getPosition(x+3,y+1),
+                  getPosition(x+4,y+1),
+                  getPosition(x+5,y+1),
+
+                  getPosition(x+1,y+2),
+                  getPosition(x+2,y+2),
+                  getPosition(x+3,y+2),
+                  getPosition(x+4,y+2),
+                  getPosition(x+5,y+2),
+                  getPosition(x+6,y+2),
+
+                  getPosition(x,y+3),
+                  getPosition(x+1,y+3),
+                  getPosition(x+3,y+3),
+                  getPosition(x+4,y+3),
+                  getPosition(x+6,y+3),
+                  getPosition(x+7,y+3),
+
+                  getPosition(x,y+4),
+                  getPosition(x+1,y+4),
+                  getPosition(x+2,y+4),
+                  getPosition(x+3,y+4),
+                  getPosition(x+4,y+4),
+                  getPosition(x+5,y+4),
+                  getPosition(x+6,y+4),
+                  getPosition(x+7,y+4),
+
+                  getPosition(x+2,y+5),
+                  getPosition(x+5,y+5),
+
+                  getPosition(x+1,y+6),
+                  getPosition(x+3,y+6),
+                  getPosition(x+4,y+6),
+                  getPosition(x+6,y+6),
+
+                  getPosition(x,y+7),
+                  getPosition(x+2,y+7),
+                  getPosition(x+5,y+7),
+                  getPosition(x+7,y+7)
+
+                ]
+              };
+              return alien;
+              break;
+            case 1:
+              var alien = {
+                "color":"orange",
+                "pos":[
+                  getPosition(x+3,y),
+                  getPosition(x+4,y),
+
+                  getPosition(x+2,y+1),
+                  getPosition(x+3,y+1),
+                  getPosition(x+4,y+1),
+                  getPosition(x+5,y+1),
+
+                  getPosition(x+1,y+2),
+                  getPosition(x+2,y+2),
+                  getPosition(x+3,y+2),
+                  getPosition(x+4,y+2),
+                  getPosition(x+5,y+2),
+                  getPosition(x+6,y+2),
+
+                  getPosition(x,y+3),
+                  getPosition(x+1,y+3),
+                  getPosition(x+3,y+3),
+                  getPosition(x+4,y+3),
+                  getPosition(x+6,y+3),
+                  getPosition(x+7,y+3),
+
+                  getPosition(x,y+4),
+                  getPosition(x+1,y+4),
+                  getPosition(x+2,y+4),
+                  getPosition(x+3,y+4),
+                  getPosition(x+4,y+4),
+                  getPosition(x+5,y+4),
+                  getPosition(x+6,y+4),
+                  getPosition(x+7,y+4),
+
+                  getPosition(x+2,y+5),
+                  getPosition(x+5,y+5),
+
+                  getPosition(x+1,y+6),
+                  getPosition(x+6,y+6),
+
+                  getPosition(x+2,y+7),
+                  getPosition(x+5,y+7),
+
+                ]
+              };
+              return alien;
+              break;
+            default:
+
+          }
+          break;
+        default:
+
+      }
+    }
+
+    function drawObject(object){
+      for (var i = 0; i < object["pos"].length; i++) {
+        drawRectangle(object["pos"][i]["x"],object["pos"][i]["y"],object["color"]);
+      }
+    }
+
+    function drawStats(){
+      context.beginPath();
+      context.textAlign = "center";
+      context.font = "14px \'Orbitron\'";
+      context.fillStyle = "white";
+      context.fillText("Score: " + player["score"], canvas.width * 0.1, canvas.height * 0.05);
+      context.fillText("Lives: " + player["lives"], canvas.width * 0.9,canvas.height * 0.05);
+      context.closePath();
+    }
+
+    function drawRectangle(x,y,color){
+      context.beginPath();
+      context.fillStyle = color;
+      context.fillRect(x*rectSize,y*rectSize,rectSize,rectSize);
+      context.closePath();
+    }
+
+    function drawGround(){
+      context.beginPath();
+      context.fillStyle = "brown";
+      context.fillRect(0,height * rectSize,canvas.width,5 * rectSize);
+      context.closePath();
+    }
+
+    function drawBullet(x,y,color){
+      //var color = "green";
+      drawRectangle(x,y-1,color);
+      drawRectangle(x-1,y-1,color);
+      drawRectangle(x+1,y-1,color);
+
+      drawRectangle(x,y,color);
+      drawRectangle(x-1,y,color);
+      drawRectangle(x+1,y,color);
+
+      drawRectangle(x,y+1,color);
+      drawRectangle(x-1,y+1,color);
+      drawRectangle(x+1,y+1,color);
+    }
+
+    function drawAliens(){
+      for (var i = 0; i < aliens["aliens"].length; i++) {
+        for (var j = 0; j < aliens["aliens"][i]["alienLine"].length; j++) {
+          if (aliens["aliens"][i]["alienLine"][j]["alive"]) {
+            drawObject(getAlien(aliens["aliens"][i]["alienLine"][j]["type"],
+            aliens["aliens"][i]["alienLine"][j]["frame"],
+            aliens["aliens"][i]["alienLine"][j]["pos"]["x"],
+            aliens["aliens"][i]["alienLine"][j]["pos"]["y"]));
+          }
+        }
+      }
+    }
+
+    function drawBullets(){
+      if (player["bullet"]["exist"]) {
+        drawBullet(player["bullet"]["x"],player["bullet"]["y"],player["color"]);
+      }
+      for (var i = 0; i < aliens["aliens"].length; i++) {
+        for (var j = 0; j < aliens["aliens"][i]["alienLine"].length; j++) {
+          if (aliens["aliens"][i]["alienLine"][j]["alive"] && aliens["aliens"][i]["alienLine"][j]["bullet"]["exist"]) {
+            drawBullet(aliens["aliens"][i]["alienLine"][j]["bullet"]["x"],aliens["aliens"][i]["alienLine"][j]["bullet"]["y"],aliens["aliens"][i]["color"]);
+          }
+        }
+      }
+      for (var i = 0; i < spaceship["bullets"].length; i++) {
+        if (spaceship["bullets"][i]["exist"]) {
+          drawBullet(spaceship["bullets"][i]["x"],spaceship["bullets"][i]["y"],spaceship["color"]);
+        }
+      }
+      //draw bullets of aliens and spaceship
+    }
+
+    function drawWorld(){
+      drawGround();
+      drawObject(getSpaceShip(spaceship["pos"]["x"],spaceship["pos"]["y"]));
+      drawObject(getPlayer(player["pos"]["x"],player["pos"]["y"]));
+      drawBullets();
+      drawAliens();
+      drawStats();
+    }
+
+    function moveSpaceship(){
+      if (spaceship["pos"]["x"] < 0 - dimensions["spaceship"]["width"]) {
+        if (Math.random() < 0.01) {
+          spaceship["dir"]["x"] = spaceship["speed"];
+        }else{
+          spaceship["dir"]["x"] = 0;
+        }
+      }
+      if (spaceship["pos"]["x"] > width) {
+        if (Math.random() < 0.01) {
+          spaceship["dir"]["x"] = -spaceship["speed"];
+        }else{
+          spaceship["dir"]["x"] = 0;
+        }
+      }
+      spaceship["pos"]["x"] += spaceship["dir"]["x"];
+      if (spaceship["pos"]["x"] >= 0 && spaceship["pos"]["x"] < width) {
+        //set currenttime auf 0 und play audio
+        if (audio_spaceship.paused) {
+          audio_spaceship.play();
+        }
+      }else{
+        audio_spaceship.currentTime = 0;
+        audio_spaceship.pause();
+      }
+    }
+
+    function moveAliens(){
+      var moveAllowed = true;
+      for (var i = 0; i < aliens["aliens"].length; i++) {
+        //aliens["aliens"][i]["audio"].play();
+        for (var j = 0; j < aliens["aliens"][i]["alienLine"].length; j++) {
+          aliens["aliens"][i]["alienLine"][j]["pos"]["x"] += aliens["dir"]["x"];
+          aliens["aliens"][i]["alienLine"][j]["pos"]["y"] += aliens["dir"]["y"];
+          if (aliens["aliens"][i]["alienLine"][j]["pos"]["x"] === width - 20 ||
+              aliens["aliens"][i]["alienLine"][j]["pos"]["x"] < 10) {
+            moveAllowed = false;
+          }
+        }
+      }
+      if (!moveAllowed) {
+        aliens["dir"]["y"] = -10;
+        for (var i = 0; i < aliens["aliens"].length; i++) {
+          for (var j = 0; j < aliens["aliens"][i]["alienLine"].length; j++) {
+            aliens["aliens"][i]["alienLine"][j]["pos"]["x"] -= aliens["dir"]["x"];
+            aliens["aliens"][i]["alienLine"][j]["pos"]["y"] -= aliens["dir"]["y"];
+          }
+        }
+        aliens["dir"]["x"] = 0 - aliens["dir"]["x"];
+        aliens["dir"]["y"] = 0;
+      }
+    }
+
+    function movePlayer(){
+      var newPosition = player["pos"]["x"] + player["dir"]["x"];
+      if (newPosition >= 0 && newPosition <= width - player["dimension"]["width"]) {
+        player["pos"]["x"] = newPosition;
+      }
+    }
+
+    function moveBullets(){
+      player["bullet"]["y"] -= 5;
+      if (player["bullet"]["y"] < 0) {
+        player["bullet"]["exist"] = false;
+      }
+      for (var i = 0; i < aliens["aliens"].length; i++) {
+        for (var j = 0; j < aliens["aliens"][i]["alienLine"].length; j++) {
+          if (!aliens["aliens"][i]["alienLine"][j]["bullet"]["exist"]) {
+            if (Math.random() < 0.001) {
+              aliens["aliens"][i]["alienLine"][j]["bullet"]["exist"] = true;
+              aliens["aliens"][i]["alienLine"][j]["bullet"]["x"] = aliens["aliens"][i]["alienLine"][j]["pos"]["x"] + dimensions["aliens"][i]["width"] / 2;
+              aliens["aliens"][i]["alienLine"][j]["bullet"]["y"] = aliens["aliens"][i]["alienLine"][j]["pos"]["y"] + dimensions["aliens"][i]["height"];
+              var audio = new Audio('assets/sound/shoot.wav');
+              audio.play();
+            }
+          }else if(aliens["aliens"][i]["alienLine"][j]["bullet"]["y"] > height){
+            aliens["aliens"][i]["alienLine"][j]["bullet"]["exist"] = false;
+          }else{
+            aliens["aliens"][i]["alienLine"][j]["bullet"]["y"] += 5;
+          }
+        }
+      }
+      if (Math.random() < 0.1) {
+        var bullet = getBullet();
+        bullet["exist"] = true;
+        bullet["x"] = spaceship["pos"]["x"] + dimensions["spaceship"]["width"] / 2;
+        bullet["y"] = spaceship["pos"]["y"] + dimensions["spaceship"]["height"];
+        spaceship["bullets"].push(bullet);
+        var audio = new Audio('assets/sound/shoot.wav');
+        audio.play();
+      }
+      if (spaceship["bullets"].length > 0) {
+        for (var i = spaceship["bullets"].length - 1; i >= 0; i--) {
+          if (spaceship["bullets"][i]["y"] > height) {
+            spaceship["bullets"].splice(i,1);
+          }else{
+            spaceship["bullets"][i]["y"] += 5;
+          }
+        }
+      }
+      //move bullets of aliens and spaceship
+    }
+
+    function checkCollision(){
+      if (player["bullet"]["exist"]) {
+        checkBulletShot();
+      }
+      for (var i = 0; i < aliens["aliens"].length; i++) {
+        for (var j = 0; j < aliens["aliens"][i]["alienLine"].length; j++) {
+          if (aliens["aliens"][i]["alienLine"][j]["alive"]) {
+            if (aliens["aliens"][i]["alienLine"][j]["pos"]["y"] + dimensions["aliens"][i]["height"] >= player["pos"]["y"]) {
+              player["alive"] = false;
+            }
+          }
+          if (aliens["aliens"][i]["alienLine"][j]["alive"] && aliens["aliens"][i]["alienLine"][j]["bullet"]["exist"]) {
+            if (aliens["aliens"][i]["alienLine"][j]["bullet"]["x"] >= player["pos"]["x"] &&
+                aliens["aliens"][i]["alienLine"][j]["bullet"]["x"] < player["pos"]["x"] + player["dimension"]["width"] &&
+                aliens["aliens"][i]["alienLine"][j]["bullet"]["y"] >= player["pos"]["y"] &&
+                aliens["aliens"][i]["alienLine"][j]["bullet"]["y"] < player["pos"]["y"] + player["dimension"]["height"]) {
+              aliens["aliens"][i]["alienLine"][j]["bullet"]["exist"] = false;
+              player["alive"] = false;
+              var audio = new Audio('assets/sound/explosion.wav');
+              audio.play();
+            }
+          }
+        }
+      }
+      for (var i = 0; i < spaceship["bullets"].length; i++) {
+        if (spaceship["bullets"][i]["x"] >= player["pos"]["x"] &&
+            spaceship["bullets"][i]["x"] < player["pos"]["x"] + dimensions["spaceship"]["width"] &&
+            spaceship["bullets"][i]["y"] >= player["pos"]["y"] &&
+            spaceship["bullets"][i]["y"] < player["pos"]["y"] + dimensions["spaceship"]["height"]) {
+            spaceship["bullets"][i]["exist"] = false;
+            player["alive"] = false;
+            var audio = new Audio('assets/sound/explosion.wav');
+            audio.play();
+        }
+
+      }
+    }
+
+    function checkBulletShot(){
+      for (var i = 0; i < aliens["aliens"].length; i++) {
+        for (var j = 0; j < aliens["aliens"][i]["alienLine"].length; j++) {
+          if (aliens["aliens"][i]["alienLine"][j]["alive"]) {
+            if (player["bullet"]["x"] >= aliens["aliens"][i]["alienLine"][j]["pos"]["x"] &&
+                player["bullet"]["x"] < aliens["aliens"][i]["alienLine"][j]["pos"]["x"] + dimensions["aliens"][i]["width"] &&
+                player["bullet"]["y"] >= aliens["aliens"][i]["alienLine"][j]["pos"]["y"] &&
+                player["bullet"]["y"] < aliens["aliens"][i]["alienLine"][j]["pos"]["y"] + dimensions["aliens"][i]["height"]) {
+              var audio = new Audio('assets/sound/invaderkilled.wav');
+              audio.play();
+              player["bullet"]["exist"] = false;
+              player["score"] += (aliens["aliens"].length - i) * 10;
+              aliens["aliens"][i]["alienLine"][j]["alive"] = false;
+            }
+          }
+        }
+      }
+    }
+
+    function hasWon(){
+      for (var i = aliens["aliens"].length - 1; i >= 0; i--) {
+        for (var j = 0; j < aliens["aliens"][i]["alienLine"].length; j++) {
+          if (aliens["aliens"][i]["alienLine"][j]["alive"]) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    function drawFinalScreen(){
+      context.beginPath();
+      context.textAlign = "center";
+      context.font = "20px \'Orbitron\'";
+      context.fillStyle = "white";
+      if (hasWon()) {
+        context.fillText("You defeated the aliens!", canvas.width / 2, canvas.height / 2);
+        context.fillText("Score: " + player["score"], canvas.width / 2, canvas.height / 2 + 30);
+      }else{
+        context.fillText("You have been destroyed by the aliens!", canvas.width / 2, canvas.height / 2);
+        context.fillText("Score: " + player["score"], canvas.width / 2, canvas.height / 2 + 30);
+      }
+      context.closePath();
+    }
+
+    function mainLoop(){
+      context.clearRect(0,0,canvas.width,canvas.height);
+      checkCollision();
+      moveBullets();
+      movePlayer();
+      moveAliens();
+      moveSpaceship();
+      drawWorld();
+      if (hasWon()) {
+        context.clearRect(0,0,canvas.width,canvas.height);
+        isGameOver = true;
+        drawWorld();
+        drawFinalScreen();
+        setTimeout(function() {
+          document.getElementById("gameDiv").style.display = "none";
+          document.getElementById("formDiv").style.display = "block";
+          document.getElementById("scoreField").value = player["score"];
+        }, 2000);
+      } else if(!player["alive"]) {
+        player["lives"]--;
+        if (player["lives"] > 0) {
+          player["alive"] = true;
+          setTimeout(mainLoop,timeInterval);
+        }else{
+          context.clearRect(0,0,canvas.width,canvas.height);
+          isGameOver = true;
+          drawWorld();
+          drawFinalScreen();
+          setTimeout(function() {
+            document.getElementById("gameDiv").style.display = "none";
+            document.getElementById("formDiv").style.display = "block";
+            document.getElementById("scoreField").value = player["score"];
+          }, 2000);
+        }
+      }else{
+        setTimeout(mainLoop,timeInterval);
+      }
+    }
+
+    function animationLoop(){
+      if (!isGameOver) {
+        for (var i = 0; i < aliens["aliens"].length; i++) {
+          for (var j = 0; j < aliens["aliens"][i]["alienLine"].length; j++) {
+            if (aliens["aliens"][i]["alienLine"][j]["alive"]) {
+              if (Math.random() < 0.5) {
+                aliens["aliens"][i]["audio"].play();
+                aliens["aliens"][i]["alienLine"][j]["frame"] = (aliens["aliens"][i]["alienLine"][j]["frame"] + 1) % 2;
+              }
+            }
+          }
+        }
+        setTimeout(animationLoop,500);
+      }
+    }
+
+    function main(){
+      mainLoop();
+      animationLoop();
+    }
+
+    document.body.addEventListener('keydown', function (event) {
+      if(event.key === "ArrowLeft"){
+        player["dir"]["x"] = -5;
+      }else if(event.key === "ArrowRight"){
+        player["dir"]["x"] = 5;
+      }else if(event.key === " "){
+        if (!player["bullet"]["exist"]) {
+          player["bullet"]["exist"] = true;
+          player["bullet"]["x"] = player["pos"]["x"] + 6;
+          player["bullet"]["y"] = player["pos"]["y"];
+          var audio = new Audio('assets/sound/shoot.wav');
+          audio.play();
+        }
+      }
+    });
+
+    document.body.addEventListener('keyup', function (event) {
+      if(event.key === "ArrowLeft"){
+        player["dir"]["x"] = 0;
+      }else if(event.key === "ArrowRight"){
+        player["dir"]["x"] = 0;
+      }
+    });
+
+    main();
+  </script>
+</body>
+</html>

@@ -1,0 +1,326 @@
+<!doctype html>
+<html>
+<head>
+  <link href="https://fonts.googleapis.com/css?family=Orbitron&display=swap" rel="stylesheet">
+  <style>
+    body{
+      text-align:center;
+      font-family:sans-serif;
+    }
+
+    #myCanvas{
+      background-color:black;
+    }
+
+    button{
+      background-color:#4CAF50;
+      border:none;
+      color:white;
+      padding:10px 32px;
+      text-align:center;
+      text-decoration:none;
+      font-size:16px;
+      width: 100px;
+      cursor:pointer;
+    }
+
+    button:hover{
+      background-color: green;
+    }
+  </style>
+</head>
+<body>
+  <h1>Ping Pong</h1>
+  <canvas id="myCanvas" width="600" height="400"></canvas>
+  <p>
+    <button id="resetButton">&#8635;</button>
+    <button id="pauseButton">| |</button>
+  </p>
+  <p><a href="../index.html">Main Page</a></p>
+  <script>
+    var audio = new Audio('assets/sound/ping_pong_sound.wav');
+    var wall_collision_sound = new Audio('assets/sound/wall_collision_sound.wav');
+    var canvas = document.getElementById("myCanvas");
+    var context = canvas.getContext("2d");
+    var paused = false;
+    const platformSize = 50;
+
+    var player1 = {
+      "pos":{
+        "x":30,
+        "y":platformSize
+      },
+      "dir":{
+        "x":0,
+        "y":0
+      },
+      "score":0
+    };
+
+    var player2 = {
+      "pos":{
+        "x":canvas.width - 30,
+        "y":platformSize
+      },
+      "dir":{
+        "x":0,
+        "y":0
+      },
+      "score":0
+    };
+
+    var ball = {
+      "degree":0,
+      "pos":{
+        "x":100,
+        "y":100
+      },
+      "dir":{
+        "x":0,
+        "y":0
+      }
+    };
+
+    document.getElementById("pauseButton").addEventListener("click",pauseGame);
+    document.getElementById("resetButton").addEventListener("click",initGame);
+
+    function pauseGame(event){
+      paused = !paused;
+      if (paused) {
+        document.getElementById("pauseButton").innerHTML = "&#9654;";
+      }else{
+        document.getElementById("pauseButton").innerHTML = "| |";
+      }
+    }
+
+    function getRandomFloat(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    function getRandomInt(min,max){
+      min = Math.ceil(min);
+      max = Math.floor(max);
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function drawBall(x,y){
+      context.beginPath();
+      context.fillStyle	= "white";
+      context.fillRect(x,y,10,10);
+      context.closePath();
+    }
+
+    function drawScore(){
+      context.beginPath();
+      context.textAlign = "center";
+      context.font = "50px \'Orbitron\'";
+      context.fillStyle = "white";
+      context.fillText(player1["score"], canvas.width / 4, 50);
+      context.fillText(player2["score"], canvas.width - canvas.width / 4, 50);
+      context.closePath();
+    }
+
+    function drawPlatform(x,y){
+      context.beginPath();
+      context.strokeStyle = "white";
+      context.lineWidth = 5;
+      context.setLineDash([platformSize, 0]);
+      context.moveTo(x,y);
+      context.lineTo(x,y+platformSize);
+      context.stroke();
+      context.closePath();
+    }
+
+    function drawField(){
+      context.setLineDash([14, 10]);
+
+      context.beginPath();
+      context.strokeStyle = "white";
+      context.lineWidth = 4;
+      context.moveTo(canvas.width / 2, 0);
+      context.lineTo(canvas.width / 2, canvas.height);
+      context.stroke();
+      context.closePath();
+
+      drawPlatform(player1["pos"]["x"],player1["pos"]["y"]);
+      drawPlatform(player2["pos"]["x"],player2["pos"]["y"]);
+      drawBall(ball["pos"]["x"],ball["pos"]["y"]);
+      drawScore();
+    }
+
+    function movePlatforms(){
+      if(player1["dir"]["y"] > 0 && player1["pos"]["y"] < canvas.height - platformSize){
+        player1["pos"]["y"] = player1["pos"]["y"] + player1["dir"]["y"];
+      }
+      if(player1["dir"]["y"] < 0 && player1["pos"]["y"] > 0){
+        player1["pos"]["y"] = player1["pos"]["y"] + player1["dir"]["y"];
+      }
+      if(player2["dir"]["y"] > 0 && player2["pos"]["y"] < canvas.height - platformSize){
+        player2["pos"]["y"] = player2["pos"]["y"] + player2["dir"]["y"];
+      }
+      if(player2["dir"]["y"] < 0 && player2["pos"]["y"] > 0){
+        player2["pos"]["y"] = player2["pos"]["y"] + player2["dir"]["y"];
+      }
+    }
+
+    //degree in degree not in radian
+    function calculateBallMovement(){
+      degree = 0;
+      const speedFactor = 5;
+      while (degree % 90 < 3) {
+        degree = getRandomInt(0,359);
+      }
+      if (degree >= 0 && degree < 90) {
+        radian = degree * (2 * Math.PI)/360;
+        ball["dir"]["x"] = 1 * speedFactor;
+        ball["dir"]["y"] = (-1) * Math.atan(radian) * speedFactor;
+      }else if(degree >= 90 && degree < 180){
+        degree = 180 - degree;
+        radian = degree * (2 * Math.PI)/360;
+        ball["dir"]["x"] = (-1) * 1 * speedFactor;
+        ball["dir"]["y"] = (-1) * Math.atan(radian) * speedFactor;
+      }else if(degree >= 180 && degree < 270){
+        degree = degree - 180;
+        radian = degree * (2 * Math.PI)/360;
+        ball["dir"]["x"] = (-1) * 1 * speedFactor;
+        ball["dir"]["y"] = Math.atan(radian) * speedFactor;
+      }else if(degree >= 270 && degree < 360){
+        degree = 360 - degree;
+        radian = degree * (2 * Math.PI)/360;
+        ball["dir"]["x"] = 1 * speedFactor;
+        ball["dir"]["y"] = Math.atan(radian) * speedFactor;
+      }
+      ball["degree"] = degree;
+    }
+
+    function moveBall(){
+      ball["pos"]["x"] = ball["pos"]["x"] + ball["dir"]["x"];
+      ball["pos"]["y"] = ball["pos"]["y"] + ball["dir"]["y"];
+    }
+
+    function initGame(){
+      paused = false;
+      document.getElementById("pauseButton").innerHTML = "| |";
+
+      player1["pos"]["x"] = 40;
+      player1["pos"]["y"] = platformSize;
+      player1["dir"]["x"] = 0;
+      player1["dir"]["y"] = 0;
+      player1["score"] = 0;
+
+      player2["pos"]["x"] = canvas.width - 40;
+      player2["pos"]["y"] = platformSize;
+      player2["dir"]["x"] = 0;
+      player2["dir"]["y"] = 0;
+      player2["score"] = 0;
+
+      ball["pos"]["x"] = canvas.width / 2;
+      ball["pos"]["y"] = canvas.height / 2;
+      ball["dir"]["x"] = 0;
+      ball["dir"]["y"] = 0;
+
+      //calculateBallMovement();
+    }
+
+    function changeCourse(){
+      if (ball["pos"]["y"] <= 0) {
+        wall_collision_sound.play();
+        ball["dir"]["y"] = 0 - ball["dir"]["y"];
+      }
+      if (ball["pos"]["y"] >= canvas.height - 10) {
+        wall_collision_sound.play();
+        ball["dir"]["y"] = 0 - ball["dir"]["y"];
+      }
+      if (ball["pos"]["x"] <= player1["pos"]["x"] &&
+          ball["pos"]["x"] >= player1["pos"]["x"] - 5 &&
+          ball["pos"]["y"] >= player1["pos"]["y"] &&
+          ball["pos"]["y"] <= player1["pos"]["y"] + platformSize) {
+        audio.play();
+        ball["dir"]["x"] = 0 - ball["dir"]["x"];
+      }
+      if (ball["pos"]["x"] + 10 >= player2["pos"]["x"] &&
+          ball["pos"]["x"] + 10 <= player2["pos"]["x"] + 5 &&
+          ball["pos"]["y"] >= player2["pos"]["y"] &&
+          ball["pos"]["y"] <= player2["pos"]["y"] + platformSize) {
+        audio.play();
+        ball["dir"]["x"] = 0 - ball["dir"]["x"];
+      }
+      if (ball["pos"]["x"] <= 0) {
+        player2["score"]++;
+        player2["dir"]["x"] = 0;
+        player2["dir"]["y"] = 0;
+        ball["pos"]["x"] = canvas.width / 2;
+        ball["pos"]["y"] = canvas.height / 2;
+        calculateBallMovement();
+      }
+      if (ball["pos"]["x"] + 10 >= canvas.width) {
+        player1["score"]++;
+        player1["dir"]["x"] = 0;
+        player1["dir"]["y"] = 0;
+        ball["pos"]["x"] = canvas.width / 2;
+        ball["pos"]["y"] = canvas.height / 2;
+        calculateBallMovement();
+      }
+    }
+
+    function main(){
+      if (!paused) {
+        context.clearRect(0,0,canvas.width,canvas.height);
+        changeCourse();
+        movePlatforms();
+        moveBall();
+        drawField();
+      }
+      if (player1["score"] < 10 && player2["score"] < 10) {
+        setTimeout(main,50);
+      }else{
+        ball["dir"]["x"] = 0;
+        ball["dir"]["y"] = 0;
+        player1["dir"]["x"] = 0;
+        player1["dir"]["y"] = 0;
+        player2["dir"]["x"] = 0;
+        player2["dir"]["y"] = 0;
+        context.beginPath();
+        context.textAlign = "center";
+        context.font = "50px \'Orbitron\'";
+        context.fillStyle = "white";
+        if (player1["score"] === 10) {
+          context.fillText("Player 1 has won!", canvas.width / 2, canvas.height / 2);
+        }else if(player2["score"] === 10){
+          context.fillText("Player 2 has won!", canvas.width / 2, canvas.height / 2);
+        }
+        context.closePath();
+      }
+    }
+
+    document.body.addEventListener('keydown', function (event) {
+      if(event.key === "ArrowDown"){
+        player2["dir"]["y"] = 10;
+        if (ball["dir"]["x"] === 0 && ball["dir"]["y"] === 0) {
+          calculateBallMovement();
+        }
+      }else if(event.key === "ArrowUp"){
+        player2["dir"]["y"] = -10;
+        if (ball["dir"]["x"] === 0 && ball["dir"]["y"] === 0) {
+          calculateBallMovement();
+        }
+      }
+      if(event.key === "w"){
+        player1["dir"]["y"] = -10;
+        if (ball["dir"]["x"] === 0 && ball["dir"]["y"] === 0) {
+          calculateBallMovement();
+        }
+      }else if(event.key === "s"){
+        player1["dir"]["y"] = 10;
+        if (ball["dir"]["x"] === 0 && ball["dir"]["y"] === 0) {
+          calculateBallMovement();
+        }
+      }
+    });
+
+    initGame();
+    drawField();
+    main();
+  </script>
+</body>
+</html>

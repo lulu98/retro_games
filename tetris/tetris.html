@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body{
+      text-align:center;
+      font-family:sans-serif;
+    }
+
+    #myCanvas{
+      border:1px solid black;
+      background-color:black;
+    }
+
+    #currentFormCanvas{
+      border:1px solid white;
+      background-color:white;
+    }
+
+    table{
+      display:inline-block;
+      vertical-align:top;
+      padding:5px;
+    }
+
+    tr{
+      line-height:20px;
+    }
+
+    td{
+      padding:10px;
+    }
+
+    button{
+      background-color:#4CAF50;
+      border:none;
+      color:white;
+      padding:10px 32px;
+      text-align:center;
+      text-decoration:none;
+      font-size:16px;
+      width: 150px;
+      cursor:pointer;
+    }
+
+    button:hover{
+      background-color: green;
+    }
+
+    #formDiv{
+      display:none;
+    }
+
+    #submitButton{
+      background-color:#4CAF50;
+      border:none;
+      color:white;
+      padding:10px 32px;
+      text-align:center;
+      text-decoration:none;
+      font-size:14px;
+      width: 120px;
+      cursor:pointer;
+    }
+
+    #submitButton:hover{
+      background-color: green;
+    }
+  </style>
+</head>
+<body>
+  <h1>Tetris</h1>
+  <div id="gameDiv">
+    <canvas id="myCanvas" width="200" height="400"></canvas>
+    <table id="scoringTable">
+      <tr>
+        <td>Level:</td>
+        <td id="level"></td>
+      </tr>
+      <tr>
+        <td>Score:</td>
+        <td id="score"></td>
+      </tr>
+      <tr>
+        <td>Lines:</td>
+        <td id="lines"></td>
+      </tr>
+      <tr>
+        <td>Next Form:</td>
+        <td>
+          <canvas id="currentFormCanvas" width="120" height="80"></canvas>
+        </td>
+      </tr>
+      <tr>
+        <td colspan=2><button id="pauseButton">Pause</button></td>
+      </tr>
+      <tr>
+        <td colspan=2><button id="resetButton">Reset</button></td>
+      </tr>
+      <tr>
+        <td colspan=2><button id="retryButton">New Game</button></td>
+      </tr>
+    </table>
+    <p><a href="../index.html">Main Page</a></p>
+  </div>
+  <div id="formDiv">
+    <form id="form" action="store_score.php" method="post">
+      Name: <input id="nameField" type="text" name="name" value="Name"><br><br>
+      Score: <input id="scoreField" type="number" name="score" value="0" readonly><br><br>
+      <input id="submitButton" type="submit" value="Submit">
+    </form>
+  </div>
+  <script>
+    /*TODO:
+    - game over message besser implementieren
+    - gescheite Melodie
+    - game over function besser implementieren
+    - bug fixing
+    */
+    var audio = new Audio('assets/sound/tetris_soundtrack.mp3');
+    audio.play();
+    var level = 0;
+    var score = 0;
+    var lines = 0;
+
+    var currentFormCanvas = document.getElementById("currentFormCanvas");
+    var currentFormContext = currentFormCanvas.getContext("2d");
+    var nextForm = getRandomInt(0,6);
+
+    var canvas = document.getElementById("myCanvas");
+    var context = canvas.getContext("2d");
+    var paused = false;
+    var startNewGame = false;
+    var xDirection = 0;
+    var yDirection = 1;
+    const width = 10;
+    const height = 22;
+    var basicVelocity = 150;
+    var board = new Array(height);
+    for (var i = 0; i < board.length; i++) {
+      board[i] = new Array(width).fill('');
+    }
+    var activeForm = {
+      'form':0,
+      'modification':0,
+      'color':"green",
+      'points':[
+        {'x':0,'y':0},
+        {'x':1,'y':0},
+        {'x':2,'y':0},
+        {'x':3,'y':0}
+      ]
+    };
+    var timeInterval = basicVelocity;
+
+    audio.addEventListener('ended',function(){
+      this.currentTime = 0;
+      this.play();
+    },false);
+
+    document.getElementById("resetButton").addEventListener('click',resetGameState);
+    document.getElementById("pauseButton").addEventListener('click',pauseGame);
+    document.getElementById("retryButton").addEventListener('click',setNewGame);
+
+    document.getElementById("retryButton").style.display = "none";
+
+    function setNewGame(event){
+      if (startNewGame) {
+        document.getElementById("retryButton").style.display = "none";
+        document.getElementById("resetButton").style.display = "block";
+        document.getElementById("pauseButton").style.display = "block";
+        startNewGame = false;
+        resetGameState();
+        setTimeout(main,timeInterval);
+      }
+    }
+
+    function pauseGame(event){
+      paused = !paused;
+      if (paused) {
+        document.getElementById("pauseButton").innerHTML = "Continue";
+        audio.pause();
+      }else{
+        document.getElementById("pauseButton").innerHTML = "Pause";
+        audio.play();
+      }
+    }
+
+    function resetGameState(event){
+      context.clearRect(0,0,canvas.width,canvas.height);
+      currentFormContext.clearRect(0,0,currentFormCanvas.width,currentFormCanvas.height);
+      level = 0;
+      score = 0;
+      lines = 0;
+      xDirection = 0;
+      yDirection = 1;
+      basicVelocity = 150;
+      timeInterval = basicVelocity;
+      paused = false;
+      document.getElementById("pauseButton").innerHTML = "Pause";
+      for (var i = 0; i < board.length; i++) {
+        for (var j = 0; j < board[i].length; j++) {
+          board[i][j] = '';
+        }
+      }
+      audio.pause();
+      audio.currentTime = 0;
+      audio.play();
+      buildNewForm();
+      drawBoard();
+    }
+
+    function drawForm(number,x,y){
+      switch (number) {
+        case 0:
+          color = "green";
+          drawRectangle(x,y,color);
+          drawRectangle(x+1,y,color);
+          drawRectangle(x+2,y,color);
+          drawRectangle(x+3,y,color);
+          break;
+        case 1:
+          color = "blue";
+          drawRectangle(x,y,color);
+          drawRectangle(x,y+1,color);
+          drawRectangle(x+1,y+1,color);
+          drawRectangle(x+2,y+1,color);
+          break;
+        case 2:
+          color = "orange";
+          drawRectangle(x,y,color);
+          drawRectangle(x+1,y,color);
+          drawRectangle(x+2,y,color);
+          drawRectangle(x+2,y-1,color);
+          break;
+        case 3:
+          color = "yellow";
+          drawRectangle(x,y,color);
+          drawRectangle(x+1,y,color);
+          drawRectangle(x,y+1,color);
+          drawRectangle(x+1,y+1,color);
+          break;
+        case 4:
+          color = "green";
+          drawRectangle(x,y,color);
+          drawRectangle(x+1,y,color);
+          drawRectangle(x+1,y-1,color);
+          drawRectangle(x+2,y-1,color);
+          break;
+        case 5:
+          color = "violet";
+          drawRectangle(x,y,color);
+          drawRectangle(x+1,y,color);
+          drawRectangle(x+2,y,color);
+          drawRectangle(x+1,y-1,color);
+          break;
+        case 6:
+          color = "red";
+          drawRectangle(x,y,color);
+          drawRectangle(x+1,y,color);
+          drawRectangle(x+1,y+1,color);
+          drawRectangle(x+2,y+1,color);
+          break;
+        default:
+          //alert("not a valid number");
+      }
+    }
+
+    function drawRectangle(x,y,color){
+      context.beginPath();
+      context.fillStyle = color;
+      context.fillRect((x*20)+1,(y*20)+1,18,18);
+      context.closePath();
+    }
+
+    function drawBoard(){
+      for (var y = 2; y < height; y++) {
+        for (var x = 0; x < width; x++) {
+          if (board[y][x] !== '') {
+            drawRectangle(x,y-2,board[y][x]);
+          }
+        }
+      }
+    }
+
+    function setModification(){
+      var newPosition = [
+        {'x':activeForm['points'][0]['x'],'y':activeForm['points'][0]['y']},
+        {'x':activeForm['points'][1]['x'],'y':activeForm['points'][1]['y']},
+        {'x':activeForm['points'][2]['x'],'y':activeForm['points'][2]['y']},
+        {'x':activeForm['points'][3]['x'],'y':activeForm['points'][3]['y']}
+      ];
+      switch (activeForm['form']) {
+        case 0:
+          switch (activeForm['modification']) {
+            case 0:
+              newPosition[1]['x'] = newPosition[0]['x'] + 1;
+              newPosition[1]['y'] = newPosition[0]['y'];
+              newPosition[2]['x'] = newPosition[0]['x'] + 2;
+              newPosition[2]['y'] = newPosition[0]['y'];
+              newPosition[3]['x'] = newPosition[0]['x'] + 3;
+              newPosition[3]['y'] = newPosition[0]['y'];
+              break;
+            case 1:
+              newPosition[1]['x'] = newPosition[0]['x'];
+              newPosition[1]['y'] = newPosition[0]['y'] + 1;
+              newPosition[2]['x'] = newPosition[0]['x'];
+              newPosition[2]['y'] = newPosition[0]['y'] + 2;
+              newPosition[3]['x'] = newPosition[0]['x'];
+              newPosition[3]['y'] = newPosition[0]['y'] + 3;
+              break;
+            case 2:
+              newPosition[1]['x'] = newPosition[0]['x'] - 1;
+              newPosition[1]['y'] = newPosition[0]['y'];
+              newPosition[2]['x'] = newPosition[0]['x'] - 2;
+              newPosition[2]['y'] = newPosition[0]['y'];
+              newPosition[3]['x'] = newPosition[0]['x'] - 3;
+              newPosition[3]['y'] = newPosition[0]['y'];
+              break;
+            case 3:
+              newPosition[1]['x'] = newPosition[0]['x'];
+              newPosition[1]['y'] = newPosition[0]['y'] - 1;
+              newPosition[2]['x'] = newPosition[0]['x'];
+              newPosition[2]['y'] = newPosition[0]['y'] - 2;
+              newPosition[3]['x'] = newPosition[0]['x'];
+              newPosition[3]['y'] = newPosition[0]['y'] - 3;
+              break;
+            default:
+
+          }
+          break;
+        case 1:
+          switch (activeForm['modification']) {
+            case 0:
+              newPosition[1]['x'] = newPosition[0]['x'];
+              newPosition[1]['y'] = newPosition[0]['y'] + 1;
+              newPosition[2]['x'] = newPosition[0]['x'] + 1;
+              newPosition[2]['y'] = newPosition[0]['y'] + 1;
+              newPosition[3]['x'] = newPosition[0]['x'] + 2;
+              newPosition[3]['y'] = newPosition[0]['y'] + 1;
+              break;
+            case 1:
+              newPosition[1]['x'] = newPosition[0]['x'] - 1;
+              newPosition[1]['y'] = newPosition[0]['y'];
+              newPosition[2]['x'] = newPosition[0]['x'] - 1;
+              newPosition[2]['y'] = newPosition[0]['y'] + 1;
+              newPosition[3]['x'] = newPosition[0]['x'] - 1;
+              newPosition[3]['y'] = newPosition[0]['y'] + 2;
+              break;
+            case 2:
+              newPosition[1]['x'] = newPosition[0]['x'];
+              newPosition[1]['y'] = newPosition[0]['y'] - 1;
+              newPosition[2]['x'] = newPosition[0]['x'] - 1;
+              newPosition[2]['y'] = newPosition[0]['y'] - 1;
+              newPosition[3]['x'] = newPosition[0]['x'] - 2;
+              newPosition[3]['y'] = newPosition[0]['y'] - 1;
+              break;
+            case 3:
+              newPosition[1]['x'] = newPosition[0]['x'] + 1;
+              newPosition[1]['y'] = newPosition[0]['y'];
+              newPosition[2]['x'] = newPosition[0]['x'] + 1;
+              newPosition[2]['y'] = newPosition[0]['y'] - 1;
+              newPosition[3]['x'] = newPosition[0]['x'] + 1;
+              newPosition[3]['y'] = newPosition[0]['y'] - 2;
+              break;
+            default:
+
+          }
+          break;
+        case 2:
+          switch (activeForm['modification']) {
+            case 0:
+              newPosition[1]['x'] = newPosition[0]['x'];
+              newPosition[1]['y'] = newPosition[0]['y'] + 1;
+              newPosition[2]['x'] = newPosition[0]['x'] - 1;
+              newPosition[2]['y'] = newPosition[0]['y'] + 1;
+              newPosition[3]['x'] = newPosition[0]['x'] - 2;
+              newPosition[3]['y'] = newPosition[0]['y'] + 1;
+              break;
+            case 1:
+              newPosition[1]['x'] = newPosition[0]['x'] - 1;
+              newPosition[1]['y'] = newPosition[0]['y'];
+              newPosition[2]['x'] = newPosition[0]['x'] - 1;
+              newPosition[2]['y'] = newPosition[0]['y'] - 1;
+              newPosition[3]['x'] = newPosition[0]['x'] - 1;
+              newPosition[3]['y'] = newPosition[0]['y'] - 2;
+              break;
+            case 2:
+              newPosition[1]['x'] = newPosition[0]['x'];
+              newPosition[1]['y'] = newPosition[0]['y'] - 1;
+              newPosition[2]['x'] = newPosition[0]['x'] + 1;
+              newPosition[2]['y'] = newPosition[0]['y'] - 1;
+              newPosition[3]['x'] = newPosition[0]['x'] + 2;
+              newPosition[3]['y'] = newPosition[0]['y'] - 1;
+              break;
+            case 3:
+              newPosition[1]['x'] = newPosition[0]['x'] + 1;
+              newPosition[1]['y'] = newPosition[0]['y'];
+              newPosition[2]['x'] = newPosition[0]['x'] + 1;
+              newPosition[2]['y'] = newPosition[0]['y'] + 1;
+              newPosition[3]['x'] = newPosition[0]['x'] + 1;
+              newPosition[3]['y'] = newPosition[0]['y'] + 2;
+              break;
+            default:
+
+          }
+          break;
+        case 4:
+          switch (activeForm['modification']) {
+            case 0:
+              newPosition[1]['x'] = newPosition[0]['x'] + 1;
+              newPosition[1]['y'] = newPosition[0]['y'];
+              newPosition[2]['x'] = newPosition[0]['x'] + 1;
+              newPosition[2]['y'] = newPosition[0]['y'] - 1;
+              newPosition[3]['x'] = newPosition[0]['x'] + 2;
+              newPosition[3]['y'] = newPosition[0]['y'] - 1;
+              break;
+            case 1:
+              newPosition[1]['x'] = newPosition[0]['x'];
+              newPosition[1]['y'] = newPosition[0]['y'] + 1;
+              newPosition[2]['x'] = newPosition[0]['x'] + 1;
+              newPosition[2]['y'] = newPosition[0]['y'] + 1;
+              newPosition[3]['x'] = newPosition[0]['x'] + 1;
+              newPosition[3]['y'] = newPosition[0]['y'] + 2;
+              break;
+            case 2:
+              newPosition[1]['x'] = newPosition[0]['x'] - 1;
+              newPosition[1]['y'] = newPosition[0]['y'];
+              newPosition[2]['x'] = newPosition[0]['x'] - 1;
+              newPosition[2]['y'] = newPosition[0]['y'] + 1;
+              newPosition[3]['x'] = newPosition[0]['x'] - 2;
+              newPosition[3]['y'] = newPosition[0]['y'] + 1;
+              break;
+            case 3:
+              newPosition[1]['x'] = newPosition[0]['x'];
+              newPosition[1]['y'] = newPosition[0]['y'] - 1;
+              newPosition[2]['x'] = newPosition[0]['x'] - 1;
+              newPosition[2]['y'] = newPosition[0]['y'] - 1;
+              newPosition[3]['x'] = newPosition[0]['x'] - 1;
+              newPosition[3]['y'] = newPosition[0]['y'] - 2;
+              break;
+            default:
+
+          }
+          break;
+        case 5:
+          switch (activeForm['modification']) {
+            case 0:
+              newPosition[1]['x'] = newPosition[0]['x'] + 1;
+              newPosition[1]['y'] = newPosition[0]['y'];
+              newPosition[2]['x'] = newPosition[0]['x'] + 2;
+              newPosition[2]['y'] = newPosition[0]['y'];
+              newPosition[3]['x'] = newPosition[0]['x'] + 1;
+              newPosition[3]['y'] = newPosition[0]['y'] - 1;
+              break;
+            case 1:
+              newPosition[1]['x'] = newPosition[0]['x'];
+              newPosition[1]['y'] = newPosition[0]['y'] + 1;
+              newPosition[2]['x'] = newPosition[0]['x'];
+              newPosition[2]['y'] = newPosition[0]['y'] + 2;
+              newPosition[3]['x'] = newPosition[0]['x'] + 1;
+              newPosition[3]['y'] = newPosition[0]['y'] + 1;
+              break;
+            case 2:
+              newPosition[1]['x'] = newPosition[0]['x'] + 1;
+              newPosition[1]['y'] = newPosition[0]['y'];
+              newPosition[2]['x'] = newPosition[0]['x'] + 2;
+              newPosition[2]['y'] = newPosition[0]['y'];
+              newPosition[3]['x'] = newPosition[0]['x'] + 1;
+              newPosition[3]['y'] = newPosition[0]['y'] + 1;
+              break;
+            case 3:
+              newPosition[1]['x'] = newPosition[0]['x'];
+              newPosition[1]['y'] = newPosition[0]['y'] + 1;
+              newPosition[2]['x'] = newPosition[0]['x'];
+              newPosition[2]['y'] = newPosition[0]['y'] + 2;
+              newPosition[3]['x'] = newPosition[0]['x'] - 1;
+              newPosition[3]['y'] = newPosition[0]['y'] + 1;
+              break;
+            default:
+
+          }
+          break;
+        case 6:
+          switch (activeForm['modification']) {
+            case 0:
+              newPosition[1]['x'] = newPosition[0]['x'] + 1;
+              newPosition[1]['y'] = newPosition[0]['y'];
+              newPosition[2]['x'] = newPosition[0]['x'] + 1;
+              newPosition[2]['y'] = newPosition[0]['y'] + 1;
+              newPosition[3]['x'] = newPosition[0]['x'] + 2;
+              newPosition[3]['y'] = newPosition[0]['y'] + 1;
+              break;
+            case 1:
+              newPosition[1]['x'] = newPosition[0]['x'];
+              newPosition[1]['y'] = newPosition[0]['y'] + 1;
+              newPosition[2]['x'] = newPosition[0]['x'] - 1;
+              newPosition[2]['y'] = newPosition[0]['y'] + 1;
+              newPosition[3]['x'] = newPosition[0]['x'] - 1;
+              newPosition[3]['y'] = newPosition[0]['y'] + 2;
+              break;
+            case 2:
+              newPosition[1]['x'] = newPosition[0]['x'] + 1;
+              newPosition[1]['y'] = newPosition[0]['y'];
+              newPosition[2]['x'] = newPosition[0]['x'] + 1;
+              newPosition[2]['y'] = newPosition[0]['y'] + 1;
+              newPosition[3]['x'] = newPosition[0]['x'] + 2;
+              newPosition[3]['y'] = newPosition[0]['y'] + 1;
+              break;
+            case 3:
+              newPosition[1]['x'] = newPosition[0]['x'];
+              newPosition[1]['y'] = newPosition[0]['y'] + 1;
+              newPosition[2]['x'] = newPosition[0]['x'] + 1;
+              newPosition[2]['y'] = newPosition[0]['y'] + 1;
+              newPosition[3]['x'] = newPosition[0]['x'] + 1;
+              newPosition[3]['y'] = newPosition[0]['y'] + 2;
+              break;
+            default:
+
+          }
+          break;
+        default:
+
+      }
+      for (var i = 0; i < activeForm['points'].length; i++) {
+        board[activeForm['points'][i]['y']][activeForm['points'][i]['x']] = '';
+      }
+      if (!hasReachedFinalDestination(newPosition) && isValidMove(newPosition)) {
+        activeForm['points'] = newPosition;
+      }
+      for (var i = 0; i < activeForm['points'].length; i++) {
+        board[activeForm['points'][i]['y']][activeForm['points'][i]['x']] = activeForm['color'];
+      }
+    }
+
+    function getRandomInt(min,max){
+      min = Math.ceil(min);
+      max = Math.floor(max);
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function moveActiveForm(xDir,yDir){
+      var oldPosition = [
+        {'x':activeForm['points'][0]['x'],'y':activeForm['points'][0]['y']},
+        {'x':activeForm['points'][1]['x'],'y':activeForm['points'][1]['y']},
+        {'x':activeForm['points'][2]['x'],'y':activeForm['points'][2]['y']},
+        {'x':activeForm['points'][3]['x'],'y':activeForm['points'][3]['y']}
+      ];
+      var newPosition = [
+        {'x':activeForm['points'][0]['x'],'y':activeForm['points'][0]['y']},
+        {'x':activeForm['points'][1]['x'],'y':activeForm['points'][1]['y']},
+        {'x':activeForm['points'][2]['x'],'y':activeForm['points'][2]['y']},
+        {'x':activeForm['points'][3]['x'],'y':activeForm['points'][3]['y']}
+      ];
+      for (var i = 0; i < newPosition.length; i++) {
+        board[activeForm['points'][i]['y']][activeForm['points'][i]['x']] = '';
+        newPosition[i]['x'] = newPosition[i]['x'] + xDir;
+        newPosition[i]['y'] = newPosition[i]['y'] + yDir;
+      }
+      if (hasReachedFinalDestination(newPosition)) {
+        for (var i = 0; i < activeForm['points'].length; i++) {
+          board[activeForm['points'][i]['y']][activeForm['points'][i]['x']] = activeForm['color'];
+        }
+        buildNewForm();
+      }else if (isValidMove(newPosition)) {
+        activeForm['points'] = newPosition;
+      }else{
+        xDir = 0;
+        for (var i = 0; i < newPosition.length; i++) {
+          oldPosition[i]['x'] = oldPosition[i]['x'] + xDir;
+          oldPosition[i]['y'] = oldPosition[i]['y'] + yDir;
+        }
+        activeForm['points'] = oldPosition;
+      }
+      for (var i = 0; i < activeForm['points'].length; i++) {
+        board[activeForm['points'][i]['y']][activeForm['points'][i]['x']] = activeForm['color'];
+      }
+    }
+
+    function hasReachedFinalDestination(newPosition){
+      var valid = false;
+      for (var i = 0; i < newPosition.length; i++) {
+        if(!(newPosition[i]['x'] < 0 || newPosition[i]['x'] >= width) && (newPosition[i]['y'] >= height || board[newPosition[i]['y']][newPosition[i]['x']] !== '')){
+          valid = true;
+        }
+      }
+      return valid;
+    }
+
+    function isValidMove(newPosition){
+      var valid = true;
+      for (var i = 0; i < newPosition.length; i++) {
+        if(newPosition[i]['x'] < 0 || newPosition[i]['x'] >= width){
+          valid = false;
+        }
+      }
+      return valid;
+    }
+
+    function drawRectangleCurrentForm(x,y,color){
+      currentFormContext.beginPath();
+      currentFormContext.fillStyle = color;
+      currentFormContext.fillRect((x*20)+1,(y*20)+1,18,18);
+      currentFormContext.closePath();
+    }
+
+    function drawNextForm(form){
+      currentFormContext.clearRect(0,0,currentFormCanvas.width,currentFormCanvas.height);
+      switch (form) {
+        case 0:
+          drawRectangleCurrentForm(1,2,'green');
+          drawRectangleCurrentForm(2,2,'green');
+          drawRectangleCurrentForm(3,2,'green');
+          drawRectangleCurrentForm(4,2,'green');
+          break;
+        case 1:
+          drawRectangleCurrentForm(1,1,'blue');
+          drawRectangleCurrentForm(1,2,'blue');
+          drawRectangleCurrentForm(2,2,'blue');
+          drawRectangleCurrentForm(3,2,'blue');
+          break;
+        case 2:
+          drawRectangleCurrentForm(1,2,'orange');
+          drawRectangleCurrentForm(2,2,'orange');
+          drawRectangleCurrentForm(3,2,'orange');
+          drawRectangleCurrentForm(3,1,'orange');
+          break;
+        case 3:
+          drawRectangleCurrentForm(2,1,'yellow');
+          drawRectangleCurrentForm(3,1,'yellow');
+          drawRectangleCurrentForm(2,2,'yellow');
+          drawRectangleCurrentForm(3,2,'yellow');
+          break;
+        case 4:
+          drawRectangleCurrentForm(1,2,'green');
+          drawRectangleCurrentForm(2,2,'green');
+          drawRectangleCurrentForm(2,1,'green');
+          drawRectangleCurrentForm(3,1,'green');
+          break;
+        case 5:
+          drawRectangleCurrentForm(1,2,'violet');
+          drawRectangleCurrentForm(2,2,'violet');
+          drawRectangleCurrentForm(3,2,'violet');
+          drawRectangleCurrentForm(2,1,'violet');
+          break;
+        case 6:
+          drawRectangleCurrentForm(1,1,'red');
+          drawRectangleCurrentForm(2,1,'red');
+          drawRectangleCurrentForm(2,2,'red');
+          drawRectangleCurrentForm(3,2,'red');
+          break;
+        default:
+      }
+    }
+
+    function buildNewForm(){
+      var x = getRandomInt(0,width-1);
+      var y = 1;
+      var form = nextForm;
+      nextForm = getRandomInt(0,6);
+      drawNextForm(nextForm);
+      activeForm['modification'] = 0;
+      switch (form) {
+        case 0:
+          x = getRandomInt(0,width-4);
+          activeForm['form'] = form;
+          activeForm['color'] = 'green';
+          activeForm['points'][0]['x'] = x;
+          activeForm['points'][0]['y'] = y;
+          activeForm['points'][1]['x'] = x+1;
+          activeForm['points'][1]['y'] = y;
+          activeForm['points'][2]['x'] = x+2;
+          activeForm['points'][2]['y'] = y;
+          activeForm['points'][3]['x'] = x+3;
+          activeForm['points'][3]['y'] = y;
+          break;
+        case 1:
+          x = getRandomInt(0,width-4);
+          activeForm['form'] = form;
+          activeForm['color'] = 'blue';
+          activeForm['points'][0]['x'] = x;
+          activeForm['points'][0]['y'] = y;
+          activeForm['points'][1]['x'] = x;
+          activeForm['points'][1]['y'] = y+1;
+          activeForm['points'][2]['x'] = x+1;
+          activeForm['points'][2]['y'] = y+1;
+          activeForm['points'][3]['x'] = x+2;
+          activeForm['points'][3]['y'] = y+1;
+          break;
+        case 2:
+          x = getRandomInt(3,width-1);
+          activeForm['form'] = form;
+          activeForm['color'] = 'orange';
+          activeForm['points'][0]['x'] = x;
+          activeForm['points'][0]['y'] = y;
+          activeForm['points'][1]['x'] = x;
+          activeForm['points'][1]['y'] = y+1;
+          activeForm['points'][2]['x'] = x-1;
+          activeForm['points'][2]['y'] = y+1;
+          activeForm['points'][3]['x'] = x-2;
+          activeForm['points'][3]['y'] = y+1;
+          break;
+        case 3:
+          x = getRandomInt(0,width-2);
+          activeForm['form'] = form;
+          activeForm['color'] = 'yellow';
+          activeForm['points'][0]['x'] = x;
+          activeForm['points'][0]['y'] = y;
+          activeForm['points'][1]['x'] = x+1;
+          activeForm['points'][1]['y'] = y;
+          activeForm['points'][2]['x'] = x;
+          activeForm['points'][2]['y'] = y+1;
+          activeForm['points'][3]['x'] = x+1;
+          activeForm['points'][3]['y'] = y+1;
+          break;
+        case 4:
+          x = getRandomInt(0,width-3);
+          activeForm['form'] = form;
+          activeForm['color'] = 'green';
+          activeForm['points'][0]['x'] = x;
+          activeForm['points'][0]['y'] = y;
+          activeForm['points'][1]['x'] = x+1;
+          activeForm['points'][1]['y'] = y;
+          activeForm['points'][2]['x'] = x+1;
+          activeForm['points'][2]['y'] = y-1;
+          activeForm['points'][3]['x'] = x+2;
+          activeForm['points'][3]['y'] = y-1;
+          break;
+        case 5:
+          x = getRandomInt(0,width-3);
+          activeForm['form'] = form;
+          activeForm['color'] = 'violet';
+          activeForm['points'][0]['x'] = x;
+          activeForm['points'][0]['y'] = y;
+          activeForm['points'][1]['x'] = x+1;
+          activeForm['points'][1]['y'] = y;
+          activeForm['points'][2]['x'] = x+2;
+          activeForm['points'][2]['y'] = y;
+          activeForm['points'][3]['x'] = x+1;
+          activeForm['points'][3]['y'] = y-1;
+          break;
+        case 6:
+          x = getRandomInt(0,width-3);
+          activeForm['form'] = form;
+          activeForm['color'] = 'red';
+          activeForm['points'][0]['x'] = x;
+          activeForm['points'][0]['y'] = y;
+          activeForm['points'][1]['x'] = x+1;
+          activeForm['points'][1]['y'] = y;
+          activeForm['points'][2]['x'] = x+1;
+          activeForm['points'][2]['y'] = y+1;
+          activeForm['points'][3]['x'] = x+2;
+          activeForm['points'][3]['y'] = y+1;
+          break;
+        default:
+          //alert("not a valid number");
+      }
+      /*for (var i = 0; i < activeForm['points'].length; i++) {
+        board[activeForm['points'][i]['y']][activeForm['points'][i]['x']] = activeForm['color'];
+      }*/
+    }
+
+    document.body.addEventListener('keydown', function (event) {
+      if(event.key === "ArrowDown"){
+        if (timeInterval === basicVelocity) {
+          timeInterval = timeInterval / 3;
+        }
+      }else if(event.key === "ArrowRight"){
+        xDirection = 1;
+      }else if(event.key === "ArrowLeft"){
+        xDirection = -1;
+      }else if(event.key === " "){
+        activeForm['modification'] = (activeForm['modification'] + 1) % 4;
+        setModification();
+      }else if(event.key === "p"){
+        //paused = !paused;
+        pauseGame();
+      }
+      // ... verändern der currentDirection ...
+    });
+
+    document.body.addEventListener('keyup', function (event) {
+      if(event.key === "ArrowDown"){
+        timeInterval = basicVelocity;
+      }else if(event.key === "ArrowRight"){
+        xDirection = 0;
+      }else if(event.key === "ArrowLeft"){
+        xDirection = 0;
+      }
+    });
+
+    function isGameOver(){
+      var rowsOccupied = 0;
+      for (var i = 4; i < board.length; i++) {
+        for (var j = 0; j < board[j].length; j++) {
+          if (board[i][j] !== '') {
+            rowsOccupied += 1;
+            break;
+          }
+        }
+      }
+      for (var i = 0; i < board[3].length; i++) {
+        if (board[3][i] !== '' && board[2][i] !== '') {
+          rowsOccupied += 1;
+          break;
+        }
+      }
+      for (var i = 0; i < board[4].length; i++) {
+        if (board[4][i] !== '' && board[3][i] !== '' && board[2][i] !== '') {
+          rowsOccupied += 1;
+          break;
+        }
+      }
+      return (rowsOccupied === (height - 2));
+    }
+
+    function isRowFull(){
+      var row = 0;
+      for (var row = 0; row < board.length; row++) {
+        var flag = true;
+        for (var col = 0; col < board[row].length; col++) {
+          flag = flag && (board[row][col] !== '');
+        }
+        if (flag) {
+          return row;
+        }
+      }
+      return -1;
+    }
+
+    function updateScore(){
+      document.getElementById("level").innerHTML = level;
+      document.getElementById("score").innerHTML = score;
+      document.getElementById("lines").innerHTML = lines;
+    }
+
+    function updateStats(){
+      var rowsFull = 0;
+      for (var k = 0; k < 4; k++) {
+        var row = isRowFull();
+        if (row > 0) {
+          for (var i = row; i >= 3; i--) {
+            for (var j = 0; j < board[row].length; j++) {
+              board[i][j] = board[i-1][j];
+            }
+          }
+          drawBoard();
+          rowsFull++;
+        }
+      }
+      lines += rowsFull;
+      switch (rowsFull) {
+        case 1:
+          score += 40 * (level + 1);
+          if (lines > 0 && lines % 10 === 0) {
+            level++;
+            if (basicVelocity > 20) {
+              basicVelocity = basicVelocity - 10;
+              timeInterval = basicVelocity;
+            }
+          }
+          break;
+        case 2:
+          score += 100 * (level + 1);
+          if (lines > 0 && lines % 10 === 0) {
+            level++;
+            if (basicVelocity > 20) {
+              basicVelocity = basicVelocity - 10;
+              timeInterval = basicVelocity;
+            }
+          }
+          break;
+        case 3:
+          score += 300 * (level + 1);
+          if (lines > 0 && lines % 10 === 0) {
+            level++;
+            if (basicVelocity > 20) {
+              basicVelocity = basicVelocity - 10;
+              timeInterval = basicVelocity;
+            }
+          }
+          break;
+        case 4:
+          score += 1200 * (level + 1);
+          if (lines > 0 && lines % 10 === 0) {
+            level++;
+            if (basicVelocity > 20) {
+              basicVelocity = basicVelocity - 10;
+              timeInterval = basicVelocity;
+            }
+          }
+          break;
+        default:
+      }
+      updateScore();
+    }
+
+    function main(){
+      if (!paused) {
+        context.clearRect(0,0,canvas.width,canvas.height);
+        //buildNewForm();
+        moveActiveForm(xDirection,yDirection);
+        drawBoard();
+        updateStats();
+      }
+      if (!isGameOver()) {
+        setTimeout(main,timeInterval);
+      }else{
+        audio.pause();
+        //document.getElementById("retryButton").style.display = "block";
+        //document.getElementById("resetButton").style.display = "none";
+        //document.getElementById("pauseButton").style.display = "none";
+        context.clearRect(0,0,canvas.width,canvas.height);
+        context.font = "30px Arial";
+        context.fillStyle = "white";
+        context.fillText("Game Over!", 10, canvas.height / 2);
+        //alert('Game over!');
+        startNewGame = true;
+        setTimeout(function() {
+          document.getElementById("gameDiv").style.display = "none";
+          document.getElementById("formDiv").style.display = "block";
+          document.getElementById("scoreField").value = score;
+        }, 2000);
+      }
+    }
+
+    buildNewForm();
+    main();
+  </script>
+</body>
+</html>
