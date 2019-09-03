@@ -6,7 +6,7 @@ A few retro games as web application (HTML, CSS, Javascript, PHP).
 Website: https://fabricative-folder.000webhostapp.com/index.html 
 
 Featured Games:
-* Ping Pong
+* Pong
 * Snake
 * Tetris
 * Space Invaders  
