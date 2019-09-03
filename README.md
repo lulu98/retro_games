@@ -7,4 +7,6 @@ Featured Games:
 * Ping Pong
 * Snake
 * Tetris
-* Space Invaders
+* Space Invaders  
+
+![Start Menu](assets/images/screenshot_start_menu.png)
