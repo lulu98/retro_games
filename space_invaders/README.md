@@ -2,7 +2,7 @@
 <p align="center"><img alt="space invaders screenshot" src="assets/images/screenshot_space_invaders.png"></p>
 
 ## Description
-You can play the classic game of space invaders. After winning or losing, you can store your score in a database.
+You can play the classic game of <a href="https://en.wikipedia.org/wiki/Space_Invaders">Space Invaders</a>. After winning or losing, you can store your score in a database.
 
 ## Sources
 ### Audio
