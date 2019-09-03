@@ -1,5 +1,5 @@
 # Space Invaders
-![Start Menu](assets/images/screenshot_space_invaders.png)
+<p align="center">![Start Menu](assets/images/screenshot_space_invaders.png)</p>
 
 ## Description
 You can play the classic game of space invaders. After winning or losing, you can store your score in a database.
