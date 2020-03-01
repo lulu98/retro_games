@@ -1,5 +1,5 @@
 # Retro Games
-Demonstration Video: https://music-transcription-software.000webhostapp.com/projects/retro_games.html   
+Demonstration Video: http://www.lukas-graber.tk/projects/retro_games.html   
 
 <p align="center"><img alt="ping pong screenshot" src="assets/images/screenshot_start_menu.png"></p>
 
